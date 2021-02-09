@@ -66,19 +66,11 @@ int main(int argc, char *argv[]){
     printf("Enter message: ");
     scanf("%s", message);
 
-    // Send message to the server
-    if (send(cfd, message, sizeof(message), 0) < 0){
-        perror("client send() error");
-        exit(EXIT_FAILURE);
-    }
-    printf("[+] MSG SENT: %s \n", message);
+    // Send message to server
+    writen(cfd, message);
 
-    // Recieve message back from server
-    if (recv(cfd, buffer, sizeof(buffer), 0) < 0){
-        perror("client recv() error");
-        exit(EXIT_FAILURE);
-    }
-    printf("[+] ECHOED MSG : %s \n", buffer);
+    // Echo back response
+    readline(cfd, buffer);
 
     // Close socket and send TCP FIN packet to server
     shutdown(cfd, SHUT_RDWR);

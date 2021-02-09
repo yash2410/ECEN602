@@ -13,7 +13,6 @@
  * be closed.
  * 
  * TODO: does there need to be new threads to manage each new client
- * 
  **/
 
 #define BUFFER 1024
@@ -87,24 +86,13 @@ int main(int argc, char *argv[]){
 		}
 
 		if (child_pid == 0) {
-			// clear buffer before reading again
-			bzero(buffer, 255);
+            // Read message from client
+            readline(new_fd, buffer);
 
-			// Recieve message from client
-			if (recv(new_fd, buffer, sizeof(buffer), 0) < 0){
-				perror("server recv() error");
-				exit(EXIT_FAILURE);
-			}
-			printf("[+] MSG RECIEVED: %s\n", buffer);
-
-			// Send message back to client
-			if (send(new_fd, buffer, strlen(buffer), 0) < 0){
-				perror("server send() error");
-				exit(EXIT_FAILURE);
-			}
-			printf("[+] MSG SENT: %s\n", buffer);
-
-			exit(EXIT_SUCCESS);
+            // Send back echo
+            writen(new_fd, buffer);
+            
+		    exit(EXIT_SUCCESS);
 		}
 	}
 
