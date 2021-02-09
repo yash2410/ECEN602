@@ -25,7 +25,8 @@ First start the server by typing the following in a terminal:
 Next start as many clients as you would like in separate terminal windows by typing the following:
 ```./echo <IPV4_Address> <PortNo>```
 
-
+## Testbench
+[Link to Testbench report](https://docs.google.com/document/d/1zmjA_fEX7kTE6ZplxLcg_hn4Qkjna99N3--LW4ojmJY/edit?usp=sharing)
 ## Contributions
 #### Yash Doshi
 * Basic client with general sent and recv fucntions
