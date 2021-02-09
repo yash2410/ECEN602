@@ -26,5 +26,11 @@ Next start as many clients as you would like in separate terminal windows by typ
 ```./echo <IPV4_Address> <PortNo>```
 
 
-## Errata
-N/A
+## Contributions
+#### Yash Doshi
+* Basic client with general sent and recv fucntions
+* Basic Server which accpets a single client and echos the message
+
+#### Parsa Dastjerdi
+* Updated client to read in messages from stdin, along with other minor changes.
+* Added threading to server to allow up to 10 clients to be used at once.
