@@ -3,7 +3,7 @@
 /**
  * Server uses IPV4 structure for sockets.
  * 
- * Start the server with the command "echos <Port>".
+ * Start the server with the command "./echos <Port>".
  * 
  * Server will then wait for a client to connect and will read in messages. 
  * It will then echo back all messages the client sends. 
@@ -11,8 +11,6 @@
  * Once a client closes, it will send the server a TCP FIN packet. The server
  * child process read() command will return a 0, and then the child process will
  * be closed.
- * 
- * TODO: does there need to be new threads to manage each new client
  **/
 
 #define BUFFER 1024

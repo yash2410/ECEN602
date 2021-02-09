@@ -14,10 +14,7 @@
  * Client will close its socket and exit when it reads an EOF from 
  * standard input (Ctrl-D). When it closes the socket, it will send a
  * TCP FIN packet to the server, and the server child process will return
- * with a 0. 
- * 
- *  TODO: need to keep client connected and read in from stdin
- *  TODO: exit from loop once the input is CTRL-D
+ * with a 0.
  **/
 
 #define BUFFER 1024
