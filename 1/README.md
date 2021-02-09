@@ -1,6 +1,6 @@
 # ECEN 602 - Networking Assignment #1
 ## Description
-TCP Client and Server
+TCP Echo Client and Server
 
 ## Usage
 To compile the server and client:
@@ -22,4 +22,9 @@ In order to start a client, type
 Server:
 ``` .echos <PortNo> ```
 
-## Errata
+## Contributions
+#### Yash Doshi
+* Basic client with general sent and recv fucntions
+* Basic Server which accpets a single client and echos the message
+
+#### Parsa Dastjerdi
