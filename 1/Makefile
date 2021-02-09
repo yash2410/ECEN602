@@ -12,4 +12,4 @@ echo: client.o $(DEP)
 	$(C) -o echo client.o
 	
 clean:
-	rm -f *.o *~ echos echo
+	rm -f *.o echos echo

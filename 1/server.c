@@ -69,6 +69,7 @@ int main(int argc, char *argv[]){
 	}
 	printf("[*] LISTENING SUCCESSFUL \n");
 	
+	
 	// Accepts up to 10 clients 
 	while(1) {
 		printf("Waiting for new client...\n");
@@ -88,11 +89,22 @@ int main(int argc, char *argv[]){
 		}
 
 		if (child_pid == 0) {
-            // Read message from client
-            readline(new_fd, buffer, MAX_BYTES);
+			// clear buffer before reading again
+			bzero(buffer, 255);
 
-            // Send back echo
-            writen(new_fd, buffer);
+			// Recieve message from client
+			if (recv(new_fd, buffer, sizeof(buffer), 0) < 0){
+				perror("server recv() error");
+				exit(EXIT_FAILURE);
+			}
+			printf("[+] MSG RECIEVED: %s\n", buffer);
+
+			// Send message back to client
+			if (send(new_fd, buffer, strlen(buffer), 0) < 0){
+				perror("server send() error");
+				exit(EXIT_FAILURE);
+			}
+			printf("[+] MSG SENT: %s\n", buffer);
             
 		    exit(EXIT_SUCCESS);
 		}

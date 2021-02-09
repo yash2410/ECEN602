@@ -1,3 +1,6 @@
+#ifndef COMMON_H
+#define COMMON_H
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -41,25 +44,4 @@ int readline(int socketfd, char* buffer, int numBytes) {
     return err;
 }
 
-int readline2(int socketfd, char* buffer, int numBytes) {
-    int err_code = 0;
-
-    for (int byte = 0; byte < numBytes; byte += err_code) {
-        err_code = recv(socketfd, buffer, sizeof(buffer), 0);
-
-        // If EOF, then exit the loop
-        if (err_code == 0 || strstr(buffer, '\n') != NULL) {
-            break;
-        }
-
-        // Retry reading if EINTR and the error code == -1
-        if (errno == EINTR && err_code == -1) {
-            continue;
-        } else if (err_code == -1) {
-            perror("readline() error");
-            return -1;
-        }
-    }
-
-    return err_code;
-}
+#endif
