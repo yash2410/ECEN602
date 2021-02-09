@@ -18,6 +18,7 @@
 #define BUFFER 1024
 #define IP_ADDRESS "127.0.0.1"
 #define BACKLOG 10
+#define MAX_BYTES 256
 
 int main(int argc, char *argv[]){
   	int sfd, new_fd;
@@ -69,7 +70,8 @@ int main(int argc, char *argv[]){
 	printf("[*] LISTENING SUCCESSFUL \n");
 	
 	// Accepts up to 10 clients 
-	while(1){
+	while(1) {
+		printf("Waiting for new client...\n");
 
 		// Returns the next completed connection from completed connection queue
 		client_addr_len = sizeof(addr_client);
@@ -87,7 +89,7 @@ int main(int argc, char *argv[]){
 
 		if (child_pid == 0) {
             // Read message from client
-            readline(new_fd, buffer);
+            readline(new_fd, buffer, MAX_BYTES);
 
             // Send back echo
             writen(new_fd, buffer);

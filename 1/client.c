@@ -21,6 +21,7 @@
  **/
 
 #define BUFFER 1024
+#define MAX_BYTES 256
 
 int main(int argc, char *argv[]){
     struct sockaddr_in addr_server;
@@ -64,16 +65,18 @@ int main(int argc, char *argv[]){
     /* ----- Communicate with server ---- */
     char message[100];
     printf("Enter message: ");
-    scanf("%s", message);
+    // scanf("%s", message);
+    fgets(message, MAX_BYTES, stdin);
 
     // Send message to server
     writen(cfd, message);
 
     // Echo back response
-    readline(cfd, buffer);
+    readline(cfd, buffer, MAX_BYTES);
 
     // Close socket and send TCP FIN packet to server
     shutdown(cfd, SHUT_RDWR);
     printf("[+] CONNECTION TO SERVER CLOSED \n");
+
     return 0;
 }
