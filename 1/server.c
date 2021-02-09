@@ -34,7 +34,7 @@ int main(int argc, char *argv[]){
         exit(EXIT_FAILURE);
     }
 
-    int port = 8080; // argv[1];
+    int port = atoi(argv[1]);
 	printf("[*] INITIATE SERVER AT %s PORT %d\n", IP_ADDRESS, port);
 
 	// Initialize the socket
@@ -75,14 +75,14 @@ int main(int argc, char *argv[]){
 		// Returns the next completed connection from completed connection queue
 		client_addr_len = sizeof(addr_client);
 		if ((new_fd = accept(sfd, (struct sockaddr *)&addr_client, &client_addr_len)) < 0){
-			perror("server accept() error");
+			perror("server: accept() error");
 			exit(EXIT_FAILURE);
 		}
 		printf("[*] CONNECTION ACCEPTED \n");
 
 		// Create new child process for the incoming client
 		if ((child_pid = fork()) < 0) {
-			perror("child fork() error");
+			perror("server: child fork() error");
 			return 0;
 		}
 
@@ -95,14 +95,14 @@ int main(int argc, char *argv[]){
 				perror("server recv() error");
 				exit(EXIT_FAILURE);
 			}
-			printf("Received string : %s\n", buffer);
+			printf("[+] MSG RECIEVED: %s\n", buffer);
 
 			// Send message back to client
 			if (send(new_fd, buffer, strlen(buffer), 0) < 0){
 				perror("server send() error");
 				exit(EXIT_FAILURE);
 			}
-			printf("Sent string : %s\n", buffer);
+			printf("[+] MSG SENT: %s\n", buffer);
 
 			exit(EXIT_SUCCESS);
 		}

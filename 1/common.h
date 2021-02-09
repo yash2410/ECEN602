@@ -9,15 +9,24 @@
 
 // TODO: 
 int writen(int new_fd, char* buffer){
-	return 0;
+    int err = send(new_fd, buffer, strlen(buffer), 0);
+    if (err < 0){
+        perror("send() error");
+        exit(EXIT_FAILURE);
+    }
+    printf("[+] MSG SENT: %s\n", buffer);
+
+	return err;
 }
 
 // TODO:
 int readline(int new_fd, char* buffer) {
-    if (recv(new_fd, buffer, sizeof(buffer), 0) < 0){
-        perror("server recv() error");
+    int err = recv(new_fd, buffer, sizeof(buffer), 0);
+    if (err < 0){
+        perror("recv() error");
         exit(EXIT_FAILURE);
     }
-    printf("Received string : %s\n", buffer);
+    printf("[+] MSG RECIEVED: %s\n", buffer);
     
+    return err;
 }
