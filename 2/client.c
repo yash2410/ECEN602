@@ -1,5 +1,24 @@
 #include"common.h"
 
+void join_server(int fd, char* user_name,int len){
+  struct sbcp_message join;
+  memset(&join,0,sizeof(join));
+
+  join.vrsn = 3;
+  join.type = JOIN;
+  join.length = 6; //size of packet == 6 Bytes
+  join.msg_payload.type = USERNAME;
+  join.msg_payload.length = (4+len);
+  for(int i=0;i < len;i++){
+    join.msg_payload.payload[i]=user_name[i];
+  } 
+  pack(join);
+  if(send(fd, msg_, sizeof(msg_), 0) < 0){
+    perror("join error : send()");
+    exit(EXIT_FAILURE);
+  }
+}
+
 int main(int argc, char *argv[]){
 
     struct sockaddr_in addr_server;
@@ -44,9 +63,7 @@ int main(int argc, char *argv[]){
     } 
     printf("[+] CONNECTED TO SERVER \n");
 
-    // TODO : Join server with username authentication
-
-    printf("[+] USER %s AUTHENTICATED",username);
+    join_server(cfd,username,sizeof(username));
     
     FD_ZERO(&read_fd);
     FD_SET(0,&read_fd);
@@ -76,7 +93,6 @@ int main(int argc, char *argv[]){
         }
 
       }
-
     }
     
     return 0;
