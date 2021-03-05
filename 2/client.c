@@ -1,5 +1,7 @@
 #include"common.h"
 
+#define WAIT 15
+
 void join_server(int fd, char* user_name,int len){
   struct sbcp_message join;
   memset(&join,0,sizeof(join));
@@ -19,15 +21,49 @@ void join_server(int fd, char* user_name,int len){
   }
 }
 
+void read_(char msg[]){
+
+  struct sbcp_message read_msg;
+  memset(&read_msg,0,sizeof(read_msg));
+
+  read_msg = unpack(msg);
+  printf("%s\n",read_msg.msg_payload.payload);
+
+  switch (read_msg.type)
+  {
+  case ACK:
+    printf("ACK : %s\n",read_msg.msg_payload.payload);
+    break;
+  case NAK:
+    printf("NAK : %s",read_msg.msg_payload.payload); 
+  case ONLINE:
+    printf("ONLINE : %s\n",read_msg.msg_payload.payload);
+    break;
+  case OFFLINE:
+    printf("OFFLINE : %s\n",read_msg.msg_payload.payload); 
+    break;
+  case FWD:
+    printf("NEW MESSAGE : %s\n",read_msg.msg_payload.payload);
+    break;
+  default:
+    printf("GOT : %s\n",read_msg.msg_payload.payload);
+    break;
+  } 
+}
+
 int main(int argc, char *argv[]){
 
     struct sockaddr_in addr_server;
+    struct timeval timeout;
     int cfd;
     fd_set read_fd;
     char username[16];
+    char attr_payload[512];
+    char recv_message[2000];
+    int payload_size = sizeof(attr_payload);
 
     if (argc != 3){
-        perror("Usage: echo <IPAddress> <Port>\n");
+        perror("Usage: sbcp_c <IPAddress> <Port>\n");
         exit(EXIT_FAILURE);
     }
 
@@ -69,6 +105,8 @@ int main(int argc, char *argv[]){
     FD_SET(0,&read_fd);
     FD_SET(cfd,&read_fd);
 
+    timeout.tv_sec = WAIT;
+    timeout.tv_usec = 0;
 
     /*
     iterarte through all fd in fd_set and check for any event in an infinite loop.
@@ -78,18 +116,23 @@ int main(int argc, char *argv[]){
     */
     while(1){
       
-      if(select(cfd+1,&read_fd,NULL,NULL,NULL)<0){
+      if(select(cfd+1,&read_fd,NULL,NULL,&timeout)<0){
         perror("client select() error");
         exit(EXIT_FAILURE);
       }
       else{
         
         if(FD_ISSET(cfd,&read_fd)){
-          printf("recieve stuff");
+          memset(&recv_message,0,sizeof(recv_message));
+          if (recv(cfd,recv_message,sizeof(recv_message),0) < 0){
+            perror('client recv() error');
+          }
         } 
 
         if(FD_ISSET(0,&read_fd)){
-          printf("send stuff");
+          memset(&attr_payload,0,payload_size);
+          fgets(attr_payload,payload_size-1,stdin);
+          send_message(cfd,SEND,MSG,attr_payload);
         }
 
       }

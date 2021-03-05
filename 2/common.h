@@ -20,9 +20,14 @@
 #include <sys/time.h>
 
 //msg type
+#define IDLE 1
 #define JOIN 2
 #define FWD 3
 #define SEND 4
+#define ACK 5
+#define NAK 6
+#define ONLINE 7
+#define OFFLINE 8
 
 //attribute type
 #define REASON 1
@@ -44,6 +49,30 @@ struct sbcp_message
   int length : 16;
   struct sbcp_attribute msg_payload;
 };
+
+//use this to send the entire message instead of written
+void send_message(int fd, int msg_type, int attribute_type,char payload[]){
+  struct sbcp_message message;
+  int buf_size = sizeof(payload);
+  memset(&message, 0, sizeof(message));
+
+  message.vrsn = 3;
+  message.type = msg_type;
+  message.length = (8+buf_size);
+
+  message.msg_payload.type = attribute_type;
+  message.msg_payload.length = (4+buf_size);
+
+  for(int i; i < buf_size;i++){
+    message.msg_payload.payload[i] = payload[i];
+  }
+  pack(message);
+  if(send(fd, msg_, sizeof(msg_), 0) < 0){
+    perror("join error : send()");
+    exit(EXIT_FAILURE);
+  }
+}
+
 
 int writen(int socketfd, char *buffer)
 {
@@ -93,7 +122,7 @@ struct sbcp_message unpack(char msg)
 
   sscanf(msg, "%[^:]:%[^:]:%[^:]:%[^:]:%[^:]:%s", &msg_vrsn, &msg_type, &msg_len, &msg_attribute_type, &msg_attribute_len, msg_attribute_payload);
 
-  memset(&msg, 0, sizeof(msg_u));
+  memset(&msg_u, 0, sizeof(msg_u));
 
   msg_u.vrsn = msg_vrsn - '0';
   msg_u.type = msg_type - '0';
