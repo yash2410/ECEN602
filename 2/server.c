@@ -100,11 +100,12 @@ int main(int argc, char* argv[]) {
     int fdmax;          // maximum file descriptor number
     int timeout = 10;   // max timeout TODO: write type and length??
 
-
     if (argc != 3) {
         perror("Usage: <./server server_ip server_port max_clients>");
         exit(EXIT_FAILURE);
     }
+
+    int max_clients = argv[2];
 
     // Initialize all client_socket[] to 0 so not checked (argv[2] == max_clients)
     for (int i = 0; i < argv[2]; ++i) {
@@ -115,14 +116,14 @@ int main(int argc, char* argv[]) {
     FD_ZERO(&master);
     FD_ZERO(&read_fds);
 
-    // --------- Create, bind, and listen listening socket -----------
+    // Call socket, bind, and listen to setup listening socket
     int port = atoi(argv[1]);
 	printf("[*] INITIATE SERVER AT %s PORT %d\n", IP_ADDRESS, port);
 
 	if ((master_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0){
 		perror("server socket() error");
 		exit(EXIT_FAILURE);
-	};
+	}
 	printf("[*] SOCKET() SUCCESSFUL \n");
 
 	if (setsockopt(master_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt))) { 
@@ -162,13 +163,61 @@ int main(int argc, char* argv[]) {
             exit(EXIT_FAILURE);
         }
 
+        // TODO: not sure if it's supposed to be client_addr_len??
+        if (FD_ISSET(master_fd, &read_fds)) {
+            if ((new_fd = accept(master_fd, (struct sockaddr*) &addr_serv, (socklen_t*) &client_addr_len)) < 0) {
+                perror("accept error");
+                exit(EXIT_FAILURE);
+            }
+            printf("New connection, socket fd is %d, ip: %s, port: %d \n", new_fd, inet_ntoa(addr_serv.sin_addr), ntohs(addr_serv.sin_port));
+
+            // send new connection greeting message (not necessary right now?)
+
+            for (int i = 0; i < argv[2]; ++i) {
+                if (client_socket[i] == 0) {
+                    client_socket[i] = new_fd;
+                    printf("Added %d to list of sockets \n", new_fd);
+                    break;
+                }
+            }
+        }
+
         // run through existing connections looking for data to read
+        // iterate through list of clients instead?? 
         for (int i = 0; i < fdmax; ++i) {
+            
             if (FD_ISSET(i, &read_fds)) {
+                // TODO: double check this
                 if (i == listen_fd){
-                    // accept a new client connection
+                    if ((new_fd = accept(i, (struct sockaddr*) &addr_serv, (socklen_t*) &client_addr_len)) < 0) {
+                        perror("accept error");
+                        exit(EXIT_FAILURE);
+                    }
+                    printf("New connection, socket fd is %d, ip: %s, port: %d \n", new_fd, inet_ntoa(addr_serv.sin_addr), ntohs(addr_serv.sin_port));
                 } else {
                     // you have messages (JOIN/SEND/IDLE) from other clients
+                }
+            }
+        }
+
+        // else its some IO operation on some other socket
+        for (int i = 0; i < argv[2]; ++i) {
+            int sd = client_socket[i];
+
+            if (FD_ISSET(sd, &read_fds)) {
+                int valread = read(sd, buffer, BUFFER);
+
+                // Read message and check if it was for closing
+                if ((valread == 0)) {
+                    getpeername(sd, (struct sockaddr*) &addr_serv, (socklen_t*) &client_addr_len);
+                    printf("Client disconnected: ip: %s, port %d \n", inet_ntoa(addr_serv.sin_addr), ntohs(address.sin_port));
+
+                    close(sd);
+                    client_socket[i] = 0;
+                } else {
+                    // Echo back the message that came in, set 
+                    buffer[valread] = '\0';
+                    send(sd, buffer, strlen(buffer), 0);
                 }
             }
         }
