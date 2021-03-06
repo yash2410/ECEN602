@@ -35,22 +35,37 @@
 #define CLIENT_COUNT 3
 #define MSG 4
 
-struct sbcp_attribute
+/*
+struct sbcp_header
 {
-  int type : 16; //set to 16bits (2 byte)
-  int length : 16;
-  char payload[512]; //4 Bytes
+  int vrsn: 9;
+  int type: 7;
+  int length: 16;
 };
 
 struct sbcp_message
 {
-  int vrsn : 9; //set to 9 bits
-  int type : 7; ///set to 7 bits
-  int length : 16;
+  struct sbcp_header header;
+  struct sbcp_attribute msg_payload;
+}
+*/
+
+struct sbcp_attribute
+{
+  int type: 16; // 16 bits (2 byte)
+  int length: 16;
+  char payload[512]; // 4 Bytes
+};
+
+struct sbcp_message
+{
+  int vrsn: 9; // 9 bits
+  int type: 7; // 7 bits
+  int length: 16;
   struct sbcp_attribute msg_payload;
 };
 
-//use this to send the entire message instead of written
+// Use this to send the entire message instead of written
 void send_message(int fd, int msg_type, int attribute_type,char payload[]){
   struct sbcp_message message;
   int buf_size = sizeof(payload);
@@ -73,7 +88,10 @@ void send_message(int fd, int msg_type, int attribute_type,char payload[]){
   }
 }
 
-
+/**
+ * Writes n bytes to a socket and returns the number of bytes written 
+ * or a -1 on error.
+ */ 
 int writen(int socketfd, char *buffer)
 {
   int err = send(socketfd, buffer, strlen(buffer), 0);
@@ -105,6 +123,7 @@ int readline(int socketfd, char *buffer, int numBytes)
 }
 char msg_[1000];
 
+
 //convert structered message to sendable string
 char *pack(struct sbcp_message msg)
 {
@@ -112,6 +131,7 @@ char *pack(struct sbcp_message msg)
   sprintf(msg_, "%d:%d:%d:%d:%d:%s", msg.vrsn, msg.type, msg.length, msg.msg_payload.type, msg.msg_payload.length, msg.msg_payload.payload);
   return (char *)msg_;
 }
+
 
 //convert recv string in to structured message
 struct sbcp_message unpack(char msg)
