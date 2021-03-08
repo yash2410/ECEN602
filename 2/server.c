@@ -71,18 +71,91 @@ int get_listener_socket() {
     return listener;
 }
 
-int main(int argc, char* argv[]) {
-    fd_set master_fds;  // master file descriptor list
-    fd_set read_fds;    // temp file descriptor list for select()
-    int fdmax;          // max file descriptor number
-
-    int newfd;
+/**
+ * If the FD is within the FD set, then handle the new connection and 
+ * add the new fd to the master fd set.
+ * 
+ * NOTE: master_fds needs to be a pointer so that it can update the original 
+ * FD set in main()
+ */
+void accept_new_connection(int fd, fd_set* master_fds, int fdmax, int listener) {
     struct sockaddr_storage remoteaddr;
+    int newfd;
     socklen_t addrlen;
 
-    char buf[BUFFER_SIZE];
-    int nbytes;
     char remoteIP[INET6_ADDRSTRLEN];
+
+    // If there are new connections, handle them
+    if (fd == listener) {
+        addrlen = sizeof(remoteaddr);
+        newfd = accept(listener, (struct sockaddr*)&remoteaddr, &addrlen);
+        if (newfd == -1) {
+            perror("accept");
+        }
+    }
+
+    else {
+        FD_SET(newfd, master_fds);
+        if (newfd > fdmax) {
+            fdmax = newfd;
+        }
+        printf("select server: new connection from %s on socket %d \n", 
+            inet_ntop(remoteaddr.ss_family, get_in_addr((struct sockaddr*) &remoteaddr),
+            remoteIP, INET6_ADDRSTRLEN), newfd);
+    }
+}
+
+/**
+ * If the FD is not within the FD set, then handle the data sent from the 
+ * client to the server.
+ */
+void handle_client_messages(int fd, fd_set* master_fds, int fdmax, char* buf, int listener) {
+    int nbytes;
+
+    // Got error or connection closed by client
+    if ((nbytes = recv(fd, buf, sizeof(buf), 0)) <= 0) {
+        if (nbytes == 0) {
+            printf("select server: socket %d hung up \n", fd);
+        } else {
+            perror("server recv error");
+        }
+        close(fd);
+        FD_CLR(fd, master_fds); // remove from master set
+    } 
+    
+    // We got some data from a client
+    else {
+        if ((nbytes = recv(fd, buf, sizeof(buf), 0)) <= 0) {
+            // Got error or connection closed by client
+            if (nbytes == 0) {
+                printf("select server: socket %d hung up \n", fd);
+            } else {
+                perror("server recv error");
+            }
+            close(fd);
+            FD_CLR(fd, master_fds);
+
+        } else {
+            for (int i = 0; i <= fdmax; ++i) {
+                // send to everyone except the listener and ourselves
+                if (FD_ISSET(i, master_fds)) {
+                    if (i != listener && i != fd) {
+                        if (send(i, buf, nbytes, 0) == -1) {
+                            perror("server send error");
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+int main(int argc, char* argv[]) {
+    fd_set master_fds;      // master file descriptor list
+    fd_set read_fds;        // temp file descriptor list for select()
+    int fdmax;              // max file descriptor number
+    char buf[BUFFER_SIZE];  // buffer holds data from clients until it can be processed
 
     FD_ZERO(&master_fds);
     FD_ZERO(&read_fds);
@@ -94,10 +167,10 @@ int main(int argc, char* argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    // add listener to master set
+    // Add listener to master set
     FD_SET(listener, &master_fds);
 
-    // keep track of the biggest file descriptor
+    // Keep track of the biggest file descriptor
     fdmax = listener;
 
     while (1) {
@@ -108,65 +181,13 @@ int main(int argc, char* argv[]) {
         }
 
         // run through the existing connections looking for data to read
-        for (int i = 0; i <= fdmax; ++i) {
-            if (FD_ISSET(i, &read_fds)) {
-                if (i == listener) {
-                    // handle new connections
-                    addrlen = sizeof(remoteaddr);
-                    newfd = accept(listener, (struct sockaddr*)&remoteaddr, &addrlen);
-                    if (newfd == -1) {
-                        perror("accept");
-                    }
-
-                } else {
-                    FD_SET(newfd, &master_fds);
-                    if (newfd > fdmax) {
-                        fdmax = newfd;
-                    }
-                    printf("select server: new connection from %s on socket %d \n", 
-                        inet_ntop(remoteaddr.ss_family, get_in_addr((struct sockaddr*) &remoteaddr),
-                        remoteIP, INET6_ADDRSTRLEN), newfd);
+        for (int fd = 0; fd <= fdmax; ++fd) {
+            if (FD_ISSET(fd, &read_fds)) {
+                if (fd == listener) {
+                    accept_new_connection(fd, &master_fds, fdmax, listener);
                 }
-
             } else {
-                // handle data from a client
-                if ((nbytes = recv(i, buf, sizeof(buf), 0)) <= 0) {
-                    // got error or connection closed by client
-                    if (nbytes == 0) {
-                        printf("select server: socket %d hung up \n", i);
-                    } else {
-                        perror("recv");
-                    }
-
-                    close(i);
-                    FD_CLR(i, &master_fds); // remove from master set
-
-                } else {
-                    // we got the some data from a client
-                    if ((nbytes = recv(i, buf, sizeof(buf), 0)) <= 0) {
-                        // got error or connection closed by client
-                        if (nbytes == 0) {
-                            printf("select server: socket %d hung up \n", i);
-                        } else {
-                            perror("recv");
-                        }
-                        close(i);
-                        FD_CLR(i, &master_fds);
-
-                    } else {
-                        for (int j = 0; j <= fdmax; ++j) {
-                            // send to everyone
-                            if (FD_ISSET(j, &master_fds)) {
-                                // except the listener and ourselves
-                                if (j != listener && j != i) {
-                                    if (send(j, buf, nbytes, 0) == -1) {
-                                        perror("send");
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
+                handle_client_messages(fd, &master_fds, fdmax, buf, listener);
             }
         }
     }
