@@ -1,226 +1,175 @@
-#include "common.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <netdb.h>
 
-/**
- * server.c
- * 
- * One instance of the SBCP server will provide a single "chat room" which can
- * handle a finite amount of clients. 
- * 
- * -------------- Operations ---------------
- * 1. The server should start on the IP and port supplied on the command line
- *      <./server server_ip server_port max_clients>
- * 2. A SEND received by the server will cause a copy of the MESSAGE text to be sent
- *      in FWD to all clients except the original sender
- * 3. A server may only accept JOIN SBCP messages from unknown clients. The server will
- *      not allow multiple clients to use the same username.
- * 4. Clients may leave the chat session unceremoniously. The server should cleanup its
- *      resources (close socket, make the username available)
- * 5. The server should discard any messages that are not understood.
- * 6. The implementation can be an iterative server. A distinct TCP connection is used for
- *      each client-server transaction.
- * 
- * -------------- I/O Multiplexing ------------
- * Need to use a single server process that can deal with a listening socket for new 
- * clients and additional connected sockets (one socket for each client that is connected).
- * 
- * The TCP server will use I/O multiplexing to handle both a listening socket as well as 
- * its connected sockets. 
- * 
- * select() blocks the program until input or output is ready on a specified set of 
- * file descriptors, or until a timer expires, whichever comes first.
- * - configure the sets for reads, writes, and exceptions
- * - to test for which events are set when select returns
- * 
- * How to use select in the chat server:
- * 1. First call socket, bind, and listen to setup listening socket
- * 2. Next you set up the data structure for select and call select to wait for an event.
- * 3. Calling select causes your program to block until one of the events you're waiting for
- *      is set.
- * 4. When select returns, you need to check what event took place and then process the event.
- *      - e.g. issue a read for the socket that has data
- * 5. If there is new activity on the listening socket, you need to call accept to connect
- *      to the new client. 
- * 6. A new client will require that you add this new connected socket to your list of connected
- *      sockets and update the select data structure before calling the next select.
- * 
- * Can get away with just issuing select for descriptors that are ready for reading and accepting
- * a connection and not worry about writing.
- * 
- */
+#define PORT "9034"
+#define BUFFER_SIZE 256
 
-#define BUFFER 1024
-#define IP_ADDRESS "127.0.0.1"
-#define BACKLOG 10
-#define MAX_BYTES 256
-
-int numClients = 0;
-
-/**
- * Checks if username exists 
- */
-int doesUserNameExist(char a[], int maxNumClients) {
-    return 0;
-}
-
-/**
- * Broadcast message to all other clients.
- * The broadcast is done by keeping a list of all the connected clients and their
- * file descriptors updated, and by iterating through it to send each client the message.
- */ 
-void broadcastMessage(struct sbcp_message msg, fd_set clientFdList, int listenFd, int acceptFd, int latestFd) {
-    for (int i = 0; i <= latestFd; ++i) {
-
-        // check if the broadcasting fd is in the client fd_set
-        if (FD_ISSET(i, &clientFdList)) {
-
-            // except for the listener socket and ourselves
-            if (listenFd != i && acceptFd != i) {
-                if ((write(i, (void*)&msg, sizeof(msg))) == -1) {
-                    printf("Server cannot broadcast. \n");
-                }
-            }
-        }
+// get sockaddr, IPv4 or IPv6
+void* get_in_addr(struct sockaddr* sa) {
+    if (sa->sa_family == AF_INET) {
+        return &(((struct sockaddr_in*)sa)->sin_addr);
     }
+
+    return &(((struct sockaddr_in6*)sa)->sin6_addr);
 }
 
-int main(int argc, char* argv[]) {
-  	int master_fd, new_fd;
-	int opt = 1;
-	struct sockaddr_in addr_serv, addr_client;
-	struct hostent addr_host;
-	char buffer[BUFFER];
-	pid_t child_pid;
-	int client_addr_len;
+// Return a listening socket
+int get_listener_socket() {
+    int listener;   // Listening socket descripter
+    int yes = 1;    // For setsockopt() SO_REUSEADDR, below
+    int rv;
 
-    int client_socket[30];
+    struct addrinfo hints, *ai, *p;
 
-    // TODO: why is there 2 fd_sets in this example??
-    fd_set master;      // master file descriptor list
-    fd_set read_fds;    // temp file descriptor list of select()
-    int fdmax;          // maximum file descriptor number
-    int timeout = 10;   // max timeout TODO: write type and length??
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_flags = AI_PASSIVE;
 
-    if (argc != 3) {
-        perror("Usage: <./server server_ip server_port max_clients>");
+    if ((rv = getaddrinfo(NULL, PORT, &hints, &ai)) != 0) {
+        fprintf(stderr, "poll server: %s \n", gai_strerror(rv));
         exit(EXIT_FAILURE);
     }
 
-    int max_clients = argv[2];
+    for (p = ai; p != NULL; p = p->ai_next) {
+        listener = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
+        if (listener < 0) {
+            continue;
+        }
 
-    // Initialize all client_socket[] to 0 so not checked (argv[2] == max_clients)
-    for (int i = 0; i < argv[2]; ++i) {
-        client_socket[i] = 0;
+        // Get rid of "address already in use" error message
+        setsockopt(listener, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
+
+        if (bind(listener, p->ai_addr, p->ai_addrlen) < 0) {
+            close(listener);
+            continue;
+        }
+
+        break;
     }
 
-    // Clear the master and temp fd sets
-    FD_ZERO(&master);
+    // Done with this address info
+    freeaddrinfo(ai);
+
+    if (listen(listener, 10) == -1) {
+        return -1;
+    }
+
+    // Didn't get bound
+    if (p == NULL) {
+        fprintf(stderr, "select server: failed to bind \n");
+        exit(EXIT_FAILURE);
+    }
+
+    return listener;
+}
+
+int main(int argc, char* argv[]) {
+    fd_set master_fds;  // master file descriptor list
+    fd_set read_fds;    // temp file descriptor list for select()
+    int fdmax;          // max file descriptor number
+
+    int newfd;
+    struct sockaddr_storage remoteaddr;
+    socklen_t addrlen;
+
+    char buf[BUFFER_SIZE];
+    int nbytes;
+    char remoteIP[INET6_ADDRSTRLEN];
+
+    FD_ZERO(&master_fds);
     FD_ZERO(&read_fds);
 
-    // Call socket, bind, and listen to setup listening socket
-    int port = atoi(argv[1]);
-	printf("[*] INITIATE SERVER AT %s PORT %d\n", IP_ADDRESS, port);
+    int listener = get_listener_socket();
 
-	if ((master_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0){
-		perror("server socket() error");
-		exit(EXIT_FAILURE);
-	}
-	printf("[*] SOCKET() SUCCESSFUL \n");
+    if (listen(listener, 10) == -1) {
+        perror("listen");
+        exit(EXIT_FAILURE);
+    }
 
-	if (setsockopt(master_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt))) { 
-        perror("server setsockopt() error"); 
-        exit(EXIT_FAILURE); 
-	}
-	printf("[*] SETSOCKOPT() SUCCESSFUL \n");
-	
-	memset(&addr_serv, 0, sizeof(addr_serv));
-	addr_serv.sin_family = AF_INET;
-	addr_serv.sin_addr.s_addr =  inet_addr(IP_ADDRESS);
-	addr_serv.sin_port = htons(port);
+    // add listener to master set
+    FD_SET(listener, &master_fds);
 
-	if (bind(master_fd, (struct sockaddr*) &addr_serv, sizeof(addr_serv)) < 0){
-		perror("server bind() error");
-		exit(EXIT_FAILURE);
-	}
-	printf("[*] BIND SUCCESSFUL() \n");
-	
-	if (listen(master_fd, BACKLOG) < 0){
-		perror("server listen() error");
-		exit(EXIT_FAILURE);
-	}
-	printf("[*] LISTENING SUCCESSFUL() \n");
-
-    // -------------------------------------------------
-
-    FD_SET(listen_fd, &master);
-    fdmax = listen_fd;  // setting fdmax to current maximum fd value
+    // keep track of the biggest file descriptor
+    fdmax = listener;
 
     while (1) {
-        // copy master to read_fds, later master would be updated
-        read_fds = master;
-
-        if (select(fdmax + 1, &read_fds, NULL, NULL, &timeout) == -1) {
-            perror("server select error");
+        read_fds = master_fds;
+        if (select(fdmax + 1, &read_fds, NULL, NULL, NULL) == -1) {
+            perror("select");
             exit(EXIT_FAILURE);
         }
 
-        // TODO: not sure if it's supposed to be client_addr_len??
-        if (FD_ISSET(master_fd, &read_fds)) {
-            if ((new_fd = accept(master_fd, (struct sockaddr*) &addr_serv, (socklen_t*) &client_addr_len)) < 0) {
-                perror("accept error");
-                exit(EXIT_FAILURE);
-            }
-            printf("New connection, socket fd is %d, ip: %s, port: %d \n", new_fd, inet_ntoa(addr_serv.sin_addr), ntohs(addr_serv.sin_port));
-
-            // send new connection greeting message (not necessary right now?)
-
-            for (int i = 0; i < argv[2]; ++i) {
-                if (client_socket[i] == 0) {
-                    client_socket[i] = new_fd;
-                    printf("Added %d to list of sockets \n", new_fd);
-                    break;
-                }
-            }
-        }
-
-        // run through existing connections looking for data to read
-        // iterate through list of clients instead?? 
-        for (int i = 0; i < fdmax; ++i) {
-            
+        // run through the existing connections looking for data to read
+        for (int i = 0; i <= fdmax; ++i) {
             if (FD_ISSET(i, &read_fds)) {
-                // TODO: double check this
-                if (i == listen_fd){
-                    if ((new_fd = accept(i, (struct sockaddr*) &addr_serv, (socklen_t*) &client_addr_len)) < 0) {
-                        perror("accept error");
-                        exit(EXIT_FAILURE);
+                if (i == listener) {
+                    // handle new connections
+                    addrlen = sizeof(remoteaddr);
+                    newfd = accept(listener, (struct sockaddr*)&remoteaddr, &addrlen);
+                    if (newfd == -1) {
+                        perror("accept");
                     }
-                    printf("New connection, socket fd is %d, ip: %s, port: %d \n", new_fd, inet_ntoa(addr_serv.sin_addr), ntohs(addr_serv.sin_port));
+
                 } else {
-                    // you have messages (JOIN/SEND/IDLE) from other clients
+                    FD_SET(newfd, &master_fds);
+                    if (newfd > fdmax) {
+                        fdmax = newfd;
+                    }
+                    printf("select server: new connection from %s on socket %d \n", 
+                        inet_ntop(remoteaddr.ss_family, get_in_addr((struct sockaddr*) &remoteaddr),
+                        remoteIP, INET6_ADDRSTRLEN), newfd);
+                }
+
+            } else {
+                // handle data from a client
+                if ((nbytes = recv(i, buf, sizeof(buf), 0)) <= 0) {
+                    // got error or connection closed by client
+                    if (nbytes == 0) {
+                        printf("select server: socket %d hung up \n", i);
+                    } else {
+                        perror("recv");
+                    }
+
+                    close(i);
+                    FD_CLR(i, &master_fds); // remove from master set
+
+                } else {
+                    // we got the some data from a client
+                    if ((nbytes = recv(i, buf, sizeof(buf), 0)) <= 0) {
+                        // got error or connection closed by client
+                        if (nbytes == 0) {
+                            printf("select server: socket %d hung up \n", i);
+                        } else {
+                            perror("recv");
+                        }
+                        close(i);
+                        FD_CLR(i, &master_fds);
+
+                    } else {
+                        for (int j = 0; j <= fdmax; ++j) {
+                            // send to everyone
+                            if (FD_ISSET(j, &master_fds)) {
+                                // except the listener and ourselves
+                                if (j != listener && j != i) {
+                                    if (send(j, buf, nbytes, 0) == -1) {
+                                        perror("send");
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
-
-        // else its some IO operation on some other socket
-        for (int i = 0; i < argv[2]; ++i) {
-            int sd = client_socket[i];
-
-            if (FD_ISSET(sd, &read_fds)) {
-                int valread = read(sd, buffer, BUFFER);
-
-                // Read message and check if it was for closing
-                if ((valread == 0)) {
-                    getpeername(sd, (struct sockaddr*) &addr_serv, (socklen_t*) &client_addr_len);
-                    printf("Client disconnected: ip: %s, port %d \n", inet_ntoa(addr_serv.sin_addr), ntohs(address.sin_port));
-
-                    close(sd);
-                    client_socket[i] = 0;
-                } else {
-                    // Echo back the message that came in, set 
-                    buffer[valread] = '\0';
-                    send(sd, buffer, strlen(buffer), 0);
-                }
-            }
-        }
-
     }
+
+    return 0;
 }
