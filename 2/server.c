@@ -9,7 +9,10 @@
 #include <netdb.h>
 
 #define PORT "9034"
-#define BUFFER_SIZE 256
+#define MAX_BYTES 1024 // 256?
+#define BACKLOG 10
+
+#define IP_ADDRESS "127.0.0.1"
 
 // get sockaddr, IPv4 or IPv6
 void* get_in_addr(struct sockaddr* sa) {
@@ -23,7 +26,7 @@ void* get_in_addr(struct sockaddr* sa) {
 // Return a listening socket
 int get_listener_socket() {
     int listener;   // Listening socket descripter
-    int yes = 1;    // For setsockopt() SO_REUSEADDR, below
+    int opt = 1;    // For setsockopt() SO_REUSEADDR, below
     int rv;
 
     struct addrinfo hints, *ai, *p;
@@ -35,7 +38,7 @@ int get_listener_socket() {
 
     if ((rv = getaddrinfo(NULL, PORT, &hints, &ai)) != 0) {
         fprintf(stderr, "poll server: %s \n", gai_strerror(rv));
-        exit(EXIT_FAILURE);
+        return -1;
     }
 
     for (p = ai; p != NULL; p = p->ai_next) {
@@ -45,8 +48,13 @@ int get_listener_socket() {
         }
 
         // Get rid of "address already in use" error message
-        setsockopt(listener, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
+        if (setsockopt(listener, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(int))) {
+            close(listener);
+            continue;
+        }
 
+
+        // Bind listener socket to a port
         if (bind(listener, p->ai_addr, p->ai_addrlen) < 0) {
             close(listener);
             continue;
@@ -55,17 +63,17 @@ int get_listener_socket() {
         break;
     }
 
-    // Done with this address info
-    freeaddrinfo(ai);
-
-    if (listen(listener, 10) == -1) {
-        return -1;
-    }
-
     // Didn't get bound
     if (p == NULL) {
         fprintf(stderr, "select server: failed to bind \n");
-        exit(EXIT_FAILURE);
+        return -1;
+    }
+
+    freeaddrinfo(ai);
+
+    if (listen(listener, BACKLOG) == -1) {
+        perror("server listen error");
+        return -1;
     }
 
     return listener;
@@ -155,17 +163,22 @@ int main(int argc, char* argv[]) {
     fd_set master_fds;      // master file descriptor list
     fd_set read_fds;        // temp file descriptor list for select()
     int fdmax;              // max file descriptor number
-    char buf[BUFFER_SIZE];  // buffer holds data from clients until it can be processed
+    char buf[MAX_BYTES];  // holds data from clients until it can be processed
+
+    if (argc != 3) {
+        perror("Usage: <./server server_ip server_port max_clients>");
+        exit(EXIT_FAILURE);
+    }
 
     FD_ZERO(&master_fds);
     FD_ZERO(&read_fds);
 
     int listener = get_listener_socket();
-
-    if (listen(listener, 10) == -1) {
-        perror("listen");
+    if (listener == -1) {
+        fprintf(stderr, "error creating listening socket \n");
         exit(EXIT_FAILURE);
     }
+    printf("LISTENING SOCKET SETUP SUCCESSFUL \n");
 
     // Add listener to master set
     FD_SET(listener, &master_fds);
@@ -173,6 +186,7 @@ int main(int argc, char* argv[]) {
     // Keep track of the biggest file descriptor
     fdmax = listener;
 
+    printf("WAITING FOR CLIENTS TO CONNECT... \n");
     while (1) {
         read_fds = master_fds;
         if (select(fdmax + 1, &read_fds, NULL, NULL, NULL) == -1) {
