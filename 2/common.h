@@ -49,6 +49,8 @@ struct sbcp_message
   struct sbcp_attribute msg_payload;
 }
 */
+char msg_[1000];
+
 
 struct sbcp_attribute
 {
@@ -121,15 +123,13 @@ int readline(int socketfd, char *buffer, int numBytes)
 
   return err;
 }
-char msg_[1000];
 
 
 //convert structered message to sendable string
-char *pack(struct sbcp_message msg)
+void pack(struct sbcp_message msg)
 {
   memset(&msg_, 0, sizeof(msg_));
-  sprintf(msg_, "%d:%d:%d:%d:%d:%s", msg.vrsn, msg.type, msg.length, msg.msg_payload.type, msg.msg_payload.length, msg.msg_payload.payload);
-  return (char *)msg_;
+  sprintf(msg_, "%d:%d:%d:%d:%d:%s", msg.vrsn, msg.type, msg.length, msg.msg_payload.type, 	msg.msg_payload.length, msg.msg_payload.payload);
 }
 
 
