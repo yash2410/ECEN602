@@ -61,22 +61,23 @@ int main(int argc, char *argv[]){
     char attr_payload[512];
     char recv_message[2000];
     int payload_size = sizeof(attr_payload);
+    int startup = 0;
 
-    if (argc != 3){
-        perror("Usage: sbcp_c <IPAddress> <Port>\n");
-        exit(EXIT_FAILURE);
-    }
+    // if (argc != 3){
+    //     perror("Usage: sbcp_c <IPAddress> <Port>\n");
+    //     exit(EXIT_FAILURE);
+    // }
 
     memset(username, '\0', sizeof(username));
     printf("Enter username :\n");
     fgets(username,16,stdin); //fgets to limit id to 16
 
-    char* ip_addr = argv[1];
-    int port = atoi(argv[2]);
-
+    char ip_addr[10] = "127.0.0.1";//argv[1];
+    int port = 9034;//atoi(argv[2]);
+    
     /* ---- Set up client ------ */
     // Initialize socket using TCP
-    if ((cfd = socket(AF_UNSPEC, SOCK_STREAM, 0)) < 0){ //IP agnostic
+    if ((cfd = socket(AF_INET, SOCK_STREAM, 0)) < 0){ //IP agnostic
         perror("client socket() error");
         exit(EXIT_FAILURE);
 	};
@@ -87,7 +88,7 @@ int main(int argc, char *argv[]){
   
     // Convert from ASCII string to binary network address
     //AF_INET here because tamu ece servers block IPv6
-    if (inet_pton(AF_INET, ip_addr, &addr_server.sin_addr) <= 0){  
+    if (inet_pton(AF_INET, "127.0.0.1", &addr_server.sin_addr) <= 0){  
         perror("client inet_pton() error"); 
         exit(EXIT_FAILURE);
     } 
@@ -99,11 +100,8 @@ int main(int argc, char *argv[]){
     } 
     printf("[+] CONNECTED TO SERVER \n");
 
-    join_server(cfd,username,sizeof(username));
+    //join_server(cfd,username,sizeof(username));
     
-    FD_ZERO(&read_fd);
-    FD_SET(0,&read_fd);
-    FD_SET(cfd,&read_fd);
 
     timeout.tv_sec = WAIT;
     timeout.tv_usec = 0;
@@ -115,24 +113,30 @@ int main(int argc, char *argv[]){
     and ignores anyother fd because it is a client and doesnt have to connect to anyone else
     */
     while(1){
-      
+      FD_ZERO(&read_fd);
+      FD_SET(0,&read_fd);
+      FD_SET(cfd,&read_fd);
       if(select(cfd+1,&read_fd,NULL,NULL,&timeout)<0){
         perror("client select() error");
         exit(EXIT_FAILURE);
       }
       else{
+        if(startup==0){
+          send_message(cfd,JOIN,USERNAME,username,sizeof(username));
+          startup++;
+        }
         
         if(FD_ISSET(cfd,&read_fd)){
           memset(&recv_message,0,sizeof(recv_message));
           if (recv(cfd,recv_message,sizeof(recv_message),0) < 0){
-            perror('client recv() error');
+            perror("client recv() error");
           }
         } 
 
         if(FD_ISSET(0,&read_fd)){
           memset(&attr_payload,0,payload_size);
           fgets(attr_payload,payload_size-1,stdin);
-          send_message(cfd,SEND,MSG,attr_payload);
+          send_message(cfd,SEND,MSG,attr_payload,sizeof(attr_payload));
         }
 
       }

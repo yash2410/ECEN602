@@ -67,10 +67,43 @@ struct sbcp_message
   struct sbcp_attribute msg_payload;
 };
 
+void pack(struct sbcp_message msg)
+{
+  memset(&msg_, 0, strlen(msg_));
+  sprintf(msg_, "%d:%d:%d:%d:%d:%s", msg.vrsn, msg.type, msg.length, msg.msg_payload.type, 	msg.msg_payload.length, msg.msg_payload.payload);
+}
+
+
+//convert recv string in to structured message
+struct sbcp_message unpack(char msg[])
+{
+
+  struct sbcp_message msg_u;
+  char *msg_vrsn, msg_type, msg_len, msg_attribute_type, msg_attribute_len, msg_attribute_payload[511];
+
+  sscanf(msg, "%[^:]:%[^:]:%[^:]:%[^:]:%[^:]:%s", &msg_vrsn, &msg_type, &msg_len, &msg_attribute_type, &msg_attribute_len, msg_attribute_payload);
+
+  memset(&msg_u, '\0', sizeof(msg_u));
+
+  msg_u.vrsn = atoi(msg_vrsn) - '0';
+  msg_u.type = msg_type - '0';
+  msg_u.length = msg_len - '0';
+  msg_u.msg_payload.type = msg_attribute_type - '0';
+  msg_u.msg_payload.length = msg_attribute_len - '0';
+
+  for (int i = 0; i < sizeof(msg_attribute_payload); i++)
+  {
+    msg_u.msg_payload.payload[i] = msg_attribute_payload[i];
+  }
+
+  return msg_u;
+}
+
+
 // Use this to send the entire message instead of written
-void send_message(int fd, int msg_type, int attribute_type,char payload[]){
+void send_message(int fd, int msg_type, int attribute_type,char payload[],size_t buf_size) {
   struct sbcp_message message;
-  int buf_size = sizeof(payload);
+  //int buf_size = sizeof(payload);
   memset(&message, 0, sizeof(message));
 
   message.vrsn = 3;
@@ -79,7 +112,6 @@ void send_message(int fd, int msg_type, int attribute_type,char payload[]){
 
   message.msg_payload.type = attribute_type;
   message.msg_payload.length = (4+buf_size);
-
   for(int i; i < buf_size;i++){
     message.msg_payload.payload[i] = payload[i];
   }
@@ -126,36 +158,6 @@ int readline(int socketfd, char *buffer, int numBytes)
 
 
 //convert structered message to sendable string
-void pack(struct sbcp_message msg)
-{
-  memset(&msg_, 0, sizeof(msg_));
-  sprintf(msg_, "%d:%d:%d:%d:%d:%s", msg.vrsn, msg.type, msg.length, msg.msg_payload.type, 	msg.msg_payload.length, msg.msg_payload.payload);
-}
 
-
-//convert recv string in to structured message
-struct sbcp_message unpack(char msg)
-{
-
-  struct sbcp_message msg_u;
-  char *msg_vrsn, msg_type, msg_len, msg_attribute_type, msg_attribute_len, msg_attribute_payload[511];
-
-  sscanf(msg, "%[^:]:%[^:]:%[^:]:%[^:]:%[^:]:%s", &msg_vrsn, &msg_type, &msg_len, &msg_attribute_type, &msg_attribute_len, msg_attribute_payload);
-
-  memset(&msg_u, 0, sizeof(msg_u));
-
-  msg_u.vrsn = msg_vrsn - '0';
-  msg_u.type = msg_type - '0';
-  msg_u.length = msg_len - '0';
-  msg_u.msg_payload.type = msg_attribute_type - '0';
-  msg_u.msg_payload.length = msg_attribute_len - '0';
-
-  for (int i = 0; i < sizeof(msg_attribute_payload); i++)
-  {
-    msg_u.msg_payload.payload[i] = msg_attribute_payload[i];
-  }
-
-  return msg_u;
-}
 
 #endif
