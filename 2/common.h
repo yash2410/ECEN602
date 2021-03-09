@@ -74,14 +74,14 @@ void pack(struct sbcp_message msg)
 }
 
 
-//convert recv string in to structured message
+// convert recv string in to structured message
 struct sbcp_message unpack(char msg[])
 {
 
   struct sbcp_message msg_u;
   char *msg_vrsn, msg_type, msg_len, msg_attribute_type, msg_attribute_len, msg_attribute_payload[511];
 
-  sscanf(msg, "%[^:]:%[^:]:%[^:]:%[^:]:%[^:]:%s", &msg_vrsn, &msg_type, &msg_len, &msg_attribute_type, &msg_attribute_len, msg_attribute_payload);
+  sscanf(msg, "%[^:]:%[^:]:%[^:]:%[^:]:%[^:]:%s", msg_vrsn, &msg_type, &msg_len, &msg_attribute_type, &msg_attribute_len, msg_attribute_payload);
 
   memset(&msg_u, '\0', sizeof(msg_u));
 

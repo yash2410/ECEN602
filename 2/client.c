@@ -116,7 +116,7 @@ int main(int argc, char *argv[]){
       FD_ZERO(&read_fd);
       FD_SET(0,&read_fd);
       FD_SET(cfd,&read_fd);
-      if(select(cfd+1,&read_fd,NULL,NULL,&timeout)<0){
+      if(select(cfd+1, &read_fd, NULL, NULL, &timeout)<0){
         perror("client select() error");
         exit(EXIT_FAILURE);
       }

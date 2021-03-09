@@ -1,12 +1,4 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <netdb.h>
+#include "common.h"
 
 #define MAX_BYTES 1024
 #define BACKLOG 10
@@ -31,6 +23,8 @@ void* get_in_addr(struct sockaddr* sa) {
  * 
  * NOTE: master_fds needs to be a pointer so that it can update the original 
  * FD set in main()
+ * 
+ * NOTE: need to check usernames for each connection
  */
 int accept_new_connection(int fd, fd_set* master_fds, int fdmax, int listener) {
     struct sockaddr_storage remoteaddr;
@@ -61,16 +55,15 @@ int accept_new_connection(int fd, fd_set* master_fds, int fdmax, int listener) {
 
 
 /**
- * If the FD is not within the FD set, then handle the data sent from the 
- * client to the server. 
- * 
- * If we got an error or closed connection by the client, then close the fd and
- * clear from the master fd set.
- * Else if we got a message, then send that message to all other clients that are 
- * currently connected.
+ * Broadcast the message to the other clients
  */
-void handle_client_messages(int client_fd, fd_set* master_fds, int fdmax, char* buf, int listener) {
+void broadcast_message(int client_fd, fd_set* master_fds, int fdmax, int listener) {
     int nbytes;
+    char buf[MAX_BYTES];
+    // struct sbcp_message read_msg;
+    // memset(&read_msg,0, sizeof(read_msg));
+    // read_msg = unpack(buf);
+    // printf("%s \n", read_msg.msg_payload.payload);
 
     if ((nbytes = recv(client_fd, buf, sizeof(buf), 0)) <= 0) {
         // Got error or connection closed by client
@@ -81,15 +74,13 @@ void handle_client_messages(int client_fd, fd_set* master_fds, int fdmax, char* 
         }
         close(client_fd);
         FD_CLR(client_fd, master_fds); // remove fd from master set
-    } 
-    
-    // Broadcast the message to the other clients
-    else {
-        for (int i = 0; i <= fdmax; ++i) {
+
+    } else {
+        for (int fd = 0; fd <= fdmax; ++fd) {
             // send message to everyone except the listeners and the senderS
-            if (FD_ISSET(i, master_fds)) {
-                if (i != listener && i != client_fd) {
-                    if (send(i, buf, nbytes, 0) == -1) {
+            if (FD_ISSET(fd, master_fds)) {
+                if (fd != listener && fd != client_fd) {
+                    if (send(fd, buf, nbytes, 0) == -1) {
                         perror("server send error");
                     }
                 }
@@ -107,7 +98,8 @@ int main(int argc, char* argv[]) {
     int opt = 1;
     int listener;
     struct sockaddr_in address;
-    char buf[MAX_BYTES];    // holds data from clients until it can be processed
+
+    int nbytes;
 
     if (argc != 4) {
         perror("Usage: <./server server_ip server_port max_clients>");
@@ -159,7 +151,7 @@ int main(int argc, char* argv[]) {
     while (1) {
         read_fds = master_fds;
         if (select(fdmax + 1, &read_fds, NULL, NULL, NULL) == -1) {
-            perror("select");
+            perror("server select() error");
             exit(EXIT_FAILURE);
         }
 
@@ -170,7 +162,7 @@ int main(int argc, char* argv[]) {
                     accept_new_connection(fd, &master_fds, fdmax, listener);
                 }
             } else {
-                handle_client_messages(fd, &master_fds, fdmax, buf, listener);
+                broadcast_message(fd, &master_fds, fdmax, listener);
             }
         }
     }
