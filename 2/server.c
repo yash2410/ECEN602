@@ -8,11 +8,14 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 
-#define PORT "9034"
-#define MAX_BYTES 1024 // 256?
+#define MAX_BYTES 1024
 #define BACKLOG 10
 
+
 #define IP_ADDRESS "127.0.0.1"
+#define PORT 8080
+#define MAX_CLIENTS 10
+#define GREETING "Connected to SBCP Server v1.0 \n"
 
 // get sockaddr, IPv4 or IPv6
 void* get_in_addr(struct sockaddr* sa) {
@@ -21,62 +24,6 @@ void* get_in_addr(struct sockaddr* sa) {
     }
 
     return &(((struct sockaddr_in6*)sa)->sin6_addr);
-}
-
-// Return a listening socket
-int get_listener_socket() {
-    int listener;   // Listening socket descripter
-    int opt = 1;    // For setsockopt() SO_REUSEADDR, below
-    int rv;
-
-    struct addrinfo hints, *ai, *p;
-
-    memset(&hints, 0, sizeof(hints));
-    hints.ai_family = AF_UNSPEC;
-    hints.ai_socktype = SOCK_STREAM;
-    hints.ai_flags = AI_PASSIVE;
-
-    if ((rv = getaddrinfo(NULL, PORT, &hints, &ai)) != 0) {
-        fprintf(stderr, "poll server: %s \n", gai_strerror(rv));
-        return -1;
-    }
-
-    for (p = ai; p != NULL; p = p->ai_next) {
-        listener = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
-        if (listener < 0) {
-            continue;
-        }
-
-        // Get rid of "address already in use" error message
-        if (setsockopt(listener, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(int))) {
-            close(listener);
-            continue;
-        }
-
-
-        // Bind listener socket to a port
-        if (bind(listener, p->ai_addr, p->ai_addrlen) < 0) {
-            close(listener);
-            continue;
-        }
-
-        break;
-    }
-
-    // Didn't get bound
-    if (p == NULL) {
-        fprintf(stderr, "select server: failed to bind \n");
-        return -1;
-    }
-
-    freeaddrinfo(ai);
-
-    if (listen(listener, BACKLOG) == -1) {
-        perror("server listen error");
-        return -1;
-    }
-
-    return listener;
 }
 
 /**
@@ -113,6 +60,7 @@ void accept_new_connection(int fd, fd_set* master_fds, int fdmax, int listener) 
     }
 }
 
+
 /**
  * If the FD is not within the FD set, then handle the data sent from the 
  * client to the server.
@@ -120,15 +68,15 @@ void accept_new_connection(int fd, fd_set* master_fds, int fdmax, int listener) 
 void handle_client_messages(int fd, fd_set* master_fds, int fdmax, char* buf, int listener) {
     int nbytes;
 
-    // Got error or connection closed by client
     if ((nbytes = recv(fd, buf, sizeof(buf), 0)) <= 0) {
+        // Got error or connection closed by client
         if (nbytes == 0) {
             printf("select server: socket %d hung up \n", fd);
         } else {
             perror("server recv error");
         }
         close(fd);
-        FD_CLR(fd, master_fds); // remove from master set
+        FD_CLR(fd, master_fds); // remove fd from master set
     } 
     
     // We got some data from a client
@@ -163,22 +111,54 @@ int main(int argc, char* argv[]) {
     fd_set master_fds;      // master file descriptor list
     fd_set read_fds;        // temp file descriptor list for select()
     int fdmax;              // max file descriptor number
-    char buf[MAX_BYTES];  // holds data from clients until it can be processed
 
-    if (argc != 3) {
+    char buf[MAX_BYTES];    // holds data from clients until it can be processed
+
+    if (argc != 4) {
         perror("Usage: <./server server_ip server_port max_clients>");
         exit(EXIT_FAILURE);
     }
 
+    char ip_address = IP_ADDRESS; // argv[1];
+    int port = PORT; // atoi(argv[2]);
+    int max_clients = MAX_CLIENTS; // atoi(argv[3]);
+
     FD_ZERO(&master_fds);
     FD_ZERO(&read_fds);
 
-    int listener = get_listener_socket();
-    if (listener == -1) {
-        fprintf(stderr, "error creating listening socket \n");
+    int opt = 1;
+    int listener;
+    struct sockaddr_in address;
+
+    if ((listener = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
+        perror("socket failed");
         exit(EXIT_FAILURE);
     }
-    printf("LISTENING SOCKET SETUP SUCCESSFUL \n");
+    printf("[*] SOCKET SUCCESSFUL \n");
+
+    if (setsockopt(listener, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt))) {
+        perror("server setsockopt() error");
+        exit(EXIT_FAILURE);
+    }
+    printf("[*] SETSOCKOPT SUCCESSFUL \n");
+
+    memset(&address, 0, sizeof(address));
+	address.sin_family = AF_INET;
+	address.sin_addr.s_addr = inet_addr(IP_ADDRESS); // htonl(INADDR_ANY);
+	address.sin_port = htons(port);
+
+    if (bind(listener, (struct sockaddr *)&address, sizeof(address)) < 0) 
+    {
+        perror("server bind() failed");
+        exit(EXIT_FAILURE);
+    }
+	printf("[*] BIND SUCCESSFUL \n");
+
+    if (listen(listener, BACKLOG) < 0) {
+        perror("server listen() failed");
+        exit(EXIT_FAILURE);
+    }
+    printf("[*] LISTENING SUCCESSFUL \n");
 
     // Add listener to master set
     FD_SET(listener, &master_fds);
