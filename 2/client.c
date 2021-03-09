@@ -4,7 +4,7 @@
 
 void join_server(int fd, char* user_name,int len){
   struct sbcp_message join;
-  memset(&join,0,sizeof(join));
+  memset(&join, 0, sizeof(join));
 
   join.vrsn = 3;
   join.type = JOIN;
@@ -70,7 +70,7 @@ int main(int argc, char *argv[]){
 
     memset(username, '\0', sizeof(username));
     printf("Enter username :\n");
-    fgets(username,16,stdin); //fgets to limit id to 16
+    fgets(username, 16, stdin); //fgets to limit id to 16
 
     char ip_addr[10] = "127.0.0.1";//argv[1];
     int port = 9034;//atoi(argv[2]);

@@ -11,9 +11,8 @@
 #define MAX_BYTES 1024
 #define BACKLOG 10
 
-
 #define IP_ADDRESS "127.0.0.1"
-#define PORT 8080
+#define PORT 9304
 #define MAX_CLIENTS 10
 #define GREETING "Connected to SBCP Server v1.0 \n"
 
@@ -33,7 +32,7 @@ void* get_in_addr(struct sockaddr* sa) {
  * NOTE: master_fds needs to be a pointer so that it can update the original 
  * FD set in main()
  */
-void accept_new_connection(int fd, fd_set* master_fds, int fdmax, int listener) {
+int accept_new_connection(int fd, fd_set* master_fds, int fdmax, int listener) {
     struct sockaddr_storage remoteaddr;
     int newfd;
     socklen_t addrlen;
@@ -43,9 +42,9 @@ void accept_new_connection(int fd, fd_set* master_fds, int fdmax, int listener) 
     // If there are new connections, handle them
     if (fd == listener) {
         addrlen = sizeof(remoteaddr);
-        newfd = accept(listener, (struct sockaddr*)&remoteaddr, &addrlen);
-        if (newfd == -1) {
-            perror("accept");
+        if ((newfd = accept(listener, (struct sockaddr*)&remoteaddr, &addrlen)) < 0) {
+            perror("server accept() error");
+            return -1;
         }
     }
 
@@ -63,42 +62,35 @@ void accept_new_connection(int fd, fd_set* master_fds, int fdmax, int listener) 
 
 /**
  * If the FD is not within the FD set, then handle the data sent from the 
- * client to the server.
+ * client to the server. 
+ * 
+ * If we got an error or closed connection by the client, then close the fd and
+ * clear from the master fd set.
+ * Else if we got a message, then send that message to all other clients that are 
+ * currently connected.
  */
-void handle_client_messages(int fd, fd_set* master_fds, int fdmax, char* buf, int listener) {
+void handle_client_messages(int client_fd, fd_set* master_fds, int fdmax, char* buf, int listener) {
     int nbytes;
 
-    if ((nbytes = recv(fd, buf, sizeof(buf), 0)) <= 0) {
+    if ((nbytes = recv(client_fd, buf, sizeof(buf), 0)) <= 0) {
         // Got error or connection closed by client
         if (nbytes == 0) {
-            printf("select server: socket %d hung up \n", fd);
+            printf("select server: socket %d hung up \n", client_fd);
         } else {
             perror("server recv error");
         }
-        close(fd);
-        FD_CLR(fd, master_fds); // remove fd from master set
+        close(client_fd);
+        FD_CLR(client_fd, master_fds); // remove fd from master set
     } 
     
-    // We got some data from a client
+    // Broadcast the message to the other clients
     else {
-        if ((nbytes = recv(fd, buf, sizeof(buf), 0)) <= 0) {
-            // Got error or connection closed by client
-            if (nbytes == 0) {
-                printf("select server: socket %d hung up \n", fd);
-            } else {
-                perror("server recv error");
-            }
-            close(fd);
-            FD_CLR(fd, master_fds);
-
-        } else {
-            for (int i = 0; i <= fdmax; ++i) {
-                // send to everyone except the listener and ourselves
-                if (FD_ISSET(i, master_fds)) {
-                    if (i != listener && i != fd) {
-                        if (send(i, buf, nbytes, 0) == -1) {
-                            perror("server send error");
-                        }
+        for (int i = 0; i <= fdmax; ++i) {
+            // send message to everyone except the listeners and the senderS
+            if (FD_ISSET(i, master_fds)) {
+                if (i != listener && i != client_fd) {
+                    if (send(i, buf, nbytes, 0) == -1) {
+                        perror("server send error");
                     }
                 }
             }
@@ -112,6 +104,9 @@ int main(int argc, char* argv[]) {
     fd_set read_fds;        // temp file descriptor list for select()
     int fdmax;              // max file descriptor number
 
+    int opt = 1;
+    int listener;
+    struct sockaddr_in address;
     char buf[MAX_BYTES];    // holds data from clients until it can be processed
 
     if (argc != 4) {
@@ -125,10 +120,6 @@ int main(int argc, char* argv[]) {
 
     FD_ZERO(&master_fds);
     FD_ZERO(&read_fds);
-
-    int opt = 1;
-    int listener;
-    struct sockaddr_in address;
 
     if ((listener = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
         perror("socket failed");
@@ -144,7 +135,7 @@ int main(int argc, char* argv[]) {
 
     memset(&address, 0, sizeof(address));
 	address.sin_family = AF_INET;
-	address.sin_addr.s_addr = inet_addr(IP_ADDRESS); // htonl(INADDR_ANY);
+	address.sin_addr.s_addr = inet_addr(IP_ADDRESS);
 	address.sin_port = htons(port);
 
     if (bind(listener, (struct sockaddr *)&address, sizeof(address)) < 0) 
@@ -160,10 +151,8 @@ int main(int argc, char* argv[]) {
     }
     printf("[*] LISTENING SUCCESSFUL \n");
 
-    // Add listener to master set
+    // Add listener to master set and keep track of biggest file descriptor
     FD_SET(listener, &master_fds);
-
-    // Keep track of the biggest file descriptor
     fdmax = listener;
 
     printf("WAITING FOR CLIENTS TO CONNECT... \n");
