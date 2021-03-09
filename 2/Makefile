@@ -6,10 +6,10 @@ TARGETS = sbcps sbcpc
 all: $(TARGETS)
 
 sbcps: server.o $(DEP)
-	$(C) -o sbcp server.o
+	$(C) -o sbcps server.o
 
 sbcpc: client.o $(DEP)
-	$(C) -o sbcp client.o
+	$(C) -o sbcpc client.o
 	
 clean:
 	rm -f *.o sbcps sbcpc
