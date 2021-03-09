@@ -111,15 +111,18 @@ int main(int argc, char *argv[])
     perror("client connect() error");
     exit(EXIT_FAILURE);
   }
+  
   printf("[+] CONNECTED TO SERVER \n");
 
+  send_message(cfd, JOIN, USERNAME, username, sizeof(username));
   //join_server(cfd,username,sizeof(username));
+
   timeout.tv_sec = WAIT;
   timeout.tv_usec = 0;
 
   /*
     iterarte through all fd in fd_set and check for any event in an infinite loop.
-    0 --> send to server
+    0 --> send to servers
     cfd --> revcieve from server  
     and ignores anyother fd because it is a client and doesnt have to connect to anyone else
     */
@@ -135,12 +138,6 @@ int main(int argc, char *argv[])
     }
     else
     {
-      if (startup == 0)
-      {
-        send_message(cfd, JOIN, USERNAME, username, sizeof(username));
-        startup++;
-      }
-
       if (FD_ISSET(0, &read_fd))
       {
         memset(&attr_payload, 0, payload_size);
@@ -162,4 +159,3 @@ int main(int argc, char *argv[])
 
   return 0;
 }
-c

@@ -102,6 +102,7 @@ struct sbcp_message unpack(char msg[])
 
 // Use this to send the entire message instead of written
 void send_message(int fd, int msg_type, int attribute_type,char payload[],size_t buf_size) {
+  printf("[+]Sending Message\n");
   struct sbcp_message message;
   //int buf_size = sizeof(payload);
   memset(&message, 0, sizeof(message));

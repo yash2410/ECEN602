@@ -32,7 +32,7 @@ int accept_new_connection(int fd, fd_set* master_fds, int fdmax, int listener) {
     socklen_t addrlen;
 
     char remoteIP[INET6_ADDRSTRLEN];
-
+    printf("[+] NEW CONNECTION TO SERVER");
     // If there are new connections, handle them
     if (fd == listener) {
         addrlen = sizeof(remoteaddr);
