@@ -32,7 +32,6 @@ int accept_new_connection(int fd, fd_set* master_fds, int fdmax, int listener) {
     socklen_t addrlen;
 
     char remoteIP[INET6_ADDRSTRLEN];
-    printf("[+] NEW CONNECTION TO SERVER");
     // If there are new connections, handle them
     if (fd == listener) {
         addrlen = sizeof(remoteaddr);
@@ -146,7 +145,7 @@ int main(int argc, char* argv[]) {
     // Add listener to master set and keep track of biggest file descriptor
     FD_SET(listener, &master_fds);
     fdmax = listener;
-
+    printf("%d",listener);
     printf("WAITING FOR CLIENTS TO CONNECT... \n");
     while (1) {
         read_fds = master_fds;

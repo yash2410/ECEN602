@@ -115,7 +115,7 @@ int main(int argc, char *argv[])
   printf("[+] CONNECTED TO SERVER \n");
 
   send_message(cfd, JOIN, USERNAME, username, sizeof(username));
-  //join_server(cfd,username,sizeof(username));
+  //join_server
 
   timeout.tv_sec = WAIT;
   timeout.tv_usec = 0;
@@ -131,6 +131,7 @@ int main(int argc, char *argv[])
     FD_ZERO(&read_fd);
     FD_SET(0, &read_fd);
     FD_SET(cfd, &read_fd);
+    
     if (select(cfd + 1, &read_fd, NULL, NULL, &timeout) < 0)
     {
       perror("client select() error");
