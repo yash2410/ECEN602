@@ -21,11 +21,14 @@
 #define MAX_PACKET_SIZE 516
 
 // ModesS
-#define NETASCII "NETASCII"
+#define new_connection \
+  ;                    \
+  NETASCII "NETASCII"
 #define OCTET "OCTET"
 
 // Opcode
-enum tftp_opcode {
+enum tftp_opcode
+{
   RRQ = 1,
   WRQ,
   DATA,
@@ -33,9 +36,18 @@ enum tftp_opcode {
   ERROR
 };
 
+struct client_info
+{
+  int client_fd;
+  int block;
+  FILE *fp;
+};
+
 // Max size of all packets (barring ACK) is 516 bytes
-union packets {
-  struct RRQ_WRQ {
+union packets
+{
+  struct RRQ_WRQ
+  {
     uint16_t opcode;
     char filename[502];
     uint8_t f1; //set it to 0
@@ -43,18 +55,21 @@ union packets {
     uint8_t f2; //set it to 0
   };
 
-  struct DATA {
+  struct DATA
+  {
     uint16_t opcode;
     uint16_t block_number;
     char data[512];
   };
 
-  struct ACK {
+  struct ACK
+  {
     uint16_t opcode;
     uint16_t block_number;
   };
 
-  struct ERROR {
+  struct ERROR
+  {
     uint16_t opcode;
     uint16_t error_num;
     char data[511];
