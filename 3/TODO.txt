@@ -1,0 +1,3 @@
+1. Server doesnt connect to tftp
+2. write rrq function and related functions
+3. write ack function and related functions
