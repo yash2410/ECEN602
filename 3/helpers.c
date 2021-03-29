@@ -5,7 +5,8 @@
  */
 int rrq(char buffer)
 {
-  printf("In RRQ");
+  printf("%s\n",buffer);
+  printf("In RRQ\n");
 }
 
 /**
@@ -13,7 +14,7 @@ int rrq(char buffer)
  */
 int ack(char buffer, int recv_fd)
 {
-  printf("In ACK");
+  printf("In ACK\n");
 }
 
 /**

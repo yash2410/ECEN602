@@ -53,24 +53,24 @@ int client_process(int recv_fd){
   switch (opcode)
   {
   case RRQ:
-    printf("opcode : RRQ");
+    printf("opcode : RRQ\n");
     rrq(buffer);
     break;
   case WRQ:
-    printf("opcode : WRQ");
+    printf("opcode : WRQ\n");
     break;
   case DATA:
-    printf("opcode : DATA");
+    printf("opcode : DATA\n");
     break;
   case ACK:
-    printf("opcode : ACK");
+    printf("opcode : ACK\n");
     ack(buffer,recv_fd);
     break;
   case ERROR:
-    printf("opcode : ERROR");
+    printf("opcode : ERROR\n");
     break;
   default:
-    printf("Unidentified opcode : %d",opcode);
+    printf("Unidentified opcode : %d\n",opcode);
     break;
   }
 
@@ -89,11 +89,11 @@ int main(int argc, char *argv[])
   struct hostent *host;
   int nbytes;
 
-  if (argc != 4)
-  {
-    perror("Usage: <./server server_ip server_port max_clients>");
-    exit(EXIT_FAILURE);
-  }
+  // if (argc != 3)
+  // {
+  //   perror("Usage: <./server. server_ip server_port>");
+  //   exit(EXIT_FAILURE);
+  // }
 
   char ip_address = IP_ADDRESS;  // argv[1];
   int port = PORT;               // atoi(argv[2]);
@@ -109,19 +109,20 @@ int main(int argc, char *argv[])
   }
   printf("[*] SOCKET SUCCESSFUL \n");
 
-  if (setsockopt(listener, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt)))
+  int stat = setsockopt(listener, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt)) ;
+  if (stat < 0)
   {
     perror("server setsockopt() error");
     exit(EXIT_FAILURE);
   }
   printf("[*] SETSOCKOPT SUCCESSFUL \n");
 
-  memset(&address, 0, sizeof(address));
-  host = gethostbyname(ip_address);
 
-  address.sin_family = AF_INET;
-  memcpy(&address.sin_addr.s_addr, host->h_addr, host->h_length);
-  address.sin_port = htons(port);
+  memset(&address, 0, sizeof(address));
+	address.sin_family = AF_INET;
+	address.sin_addr.s_addr = inet_addr(IP_ADDRESS);
+	address.sin_port = htons(port);
+
 
   if (bind(listener, (struct sockaddr *)&address, sizeof(address)) < 0)
   {
@@ -132,7 +133,7 @@ int main(int argc, char *argv[])
 
   FD_SET(listener, &master_fds);
   fdmax = listener;
-  struct timeval tv = {10, 0};
+  struct timeval tv = {100, 0};
 
    while (1)
   {
@@ -146,7 +147,8 @@ int main(int argc, char *argv[])
 
     else if (select_status == 0)
     {
-      printf("Time Out Occured");
+      printf("Time Out Occured\n");
+      exit('EXIT_FAILURE');
     }
 
     else
@@ -162,6 +164,10 @@ int main(int argc, char *argv[])
             * call client_process() 
             * check client_fd < fdmax : (fdmax = client_fd)
             */
+           int fd_ = client_process(fd);
+           if(fd_ > fdmax){
+             fdmax = fd_;
+           }
           }
         }
         else
@@ -170,6 +176,7 @@ int main(int argc, char *argv[])
            * existent connection
            * call client_process()
           */
+         int fd_ = client_process(fd);
         }
       }
     }
