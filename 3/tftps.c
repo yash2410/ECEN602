@@ -3,7 +3,7 @@
 #define IP_ADDRESS "127.0.0.1"
 #define PORT 69
 #define MAX_CLIENTS 5
-#define MAX_PACKET_SIZE 512
+#define MAX_PACKET_SIZE 516
 #define BUFFER 1024
 
 // Modes
