@@ -67,7 +67,7 @@ int main(int argc, char *argv[])
   printf("[*] BIND SUCCESSFUL \n");
 
   while (opt)
-  { 
+  {
     struct client_info client;
 
     int stat = 0;
@@ -75,24 +75,26 @@ int main(int argc, char *argv[])
 
     client.size = recvfrom(listener, &client.buffer, sizeof(client.buffer), 0, (struct sockaddr *)&client.client, sizeof(client.client));
     int opcode = htons(client.buffer.opcode);
-    pid = fork();
-    if (pid < 0)
+
+    switch (opcode)
     {
-      perror("fork()");
-    }
-    else
-    {
-      switch (opcode)
+    case (RRQ || WRQ):
+      pid = fork();
+      if (pid < 0)
       {
-      case (RRQ || WRQ):
-        stat = client_request(client);
-        break;
-      default:
-        printf("Unidentified opcode : %d\n",opcode);
-        break;
+        perror("fork()");
       }
+      else
+      {
+        stat = client_request(client);
+      }
+      break;
+    default:
+      printf("Unidentified opcode : %d\n", opcode);
+      break;
     }
-    if(stat = -1){
+    if (stat = -1)
+    {
       printf("error in socket dropping client");
     }
     free(&client);
