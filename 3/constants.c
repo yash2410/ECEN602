@@ -13,17 +13,17 @@
 #include <stdint.h>
 #include <signal.h>
 #include <sys/time.h>
+#include <time.h>
 
 #define IP_ADDRESS "127.0.0.1"
-#define PORT 5000
+#define PORT 8000
 #define MAX_CLIENTS 5
 
 #define MAX_PACKET_SIZE 516
 
+#define MAX_RETRIES 3;
 // ModesS
-#define new_connection \
-  ;                    \
-  NETASCII "NETASCII"
+#define NETASCII "NETASCII"
 #define OCTET "OCTET"
 
 // Opcode
@@ -36,45 +36,41 @@ enum tftp_opcode
   ERROR
 };
 
-struct client_info
+// Max size of all packets (barring ACK) is 516 bytes
+
+struct rrq_wrq
 {
-  int client_fd;
-  int block;
-  FILE *fp;
+  uint16_t opcode;
+  uint8_t file
 };
 
-// Max size of all packets (barring ACK) is 516 bytes
-union packets
+struct data
 {
-  struct RRQ_WRQ
-  {
-    uint16_t opcode;
-    char filename[502];
-    uint8_t f1; //set it to 0
-    char mode[10];
-    uint8_t f2; //set it to 0
-  };
+  uint16_t opcode;
+  uint16_t block_number;
+  uint8_t data[512]
+};
 
-  struct DATA
-  {
-    uint16_t opcode;
-    uint16_t block_number;
-    char data[512];
-  };
+struct ack
+{
+  uint16_t opcode;
+  uint16_t block_number;
+};
 
-  struct ACK
-  {
-    uint16_t opcode;
-    uint16_t block_number;
-  };
+struct error
+{
+  uint16_t opcode;
+  uint16_t error_num;
+  uint8_t error[512];
+};
 
-  struct ERROR
-  {
-    uint16_t opcode;
-    uint16_t error_num;
-    char data[511];
-    uint8_t f1; //set it to 0
-  };
+//Client Info hold all the information of the client i.e the files, socket, address and size
+struct client_info
+{
+  int size;
+  struct rrq_wrq buffer;
+  struct sockaddr_in client;
+  int sock;
 };
 
 #endif
