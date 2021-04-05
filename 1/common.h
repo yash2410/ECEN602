@@ -15,8 +15,6 @@
  * Write n bytes to a socket and return the number of bytes writen or a -1 on error.
  * Might input or output fewer bytes than expected due to buffer limits, but this can
  * be resolved by calling write again. Only seen on write if the socket is non-blocking.
- * 
- * EINTR is an error 
  **/
 int writen(int socketfd, char* buffer){
     int err = send(socketfd, buffer, strlen(buffer), 0);

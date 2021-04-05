@@ -2,8 +2,12 @@
     "files.associations": {
         "signal.h": "c",
         "types.h": "c",
+<<<<<<< HEAD
         "stdlib.h": "c",
         "time.h": "c",
         "string.h": "c"
+=======
+        "stdlib.h": "c"
+>>>>>>> 8e6fe664afda202ad060d7b86bece79e24996d61
     }
 }

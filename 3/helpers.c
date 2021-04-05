@@ -1,75 +1,99 @@
-#include "constants.h"
+#include "constants.c"
+/**
+ * Includes functions for sending and receiving requests.
+ * client request : takes client_info generates a socket specific to the client and sorts into rrq or wrq
+ * rrq : gets the filename and data to send to the client as well as handles ACKs
+ * error : sends error to the clients
+ * data : sends data packets on request from client
+ */
+void data(struct data data, struct client_info client)
+{
+    data.opcode = htons(DATA);
+    int i = sendto(client.sock, &data, sizeof(&data), 0, (struct sockaddr *)&client.client, sizeof(client.client));
+    if (i < 0)
+    {
+        perror("error()");
+    }
+}
+/**
+ * Error
+ */
+void error(struct client_info client, char error_string)
+{
+    struct error error;
+    error.opcode = htons(ERROR);
+    error.error_num = 0;
+    int i = sendto(client.sock, &error, sizeof(&error), 0, (struct sockaddr *)&client.client, sizeof(client.client));
+    if (i < 0)
+    {
+        perror("error()");
+    }
+}
 
 /**
  * Read Request Function
- * ----------------------------------------------------
- * 1. TFTP client sends RRQ to the TFTP server on chosen port number. Request contains
- *  a filename and transfer mode.
- * 
- * 2. TFTP server receives RRQ packet and creates a child process with fork(). Child process
- *  creates a new socket and calls bind() with a ephemeral port number. Child process
- *  then responds with directly with the first DATA packet, numbered starting from 1.
- *  All DATA packets contain a full-size block of 512 bytes, besides the last one.
- * 
- * 3. TFTP client receives first DATA packet and then determines the ephermal port number
- *  before responding. Child sends ACK with block number of 1 in response for first block.
- *  
- * 4. File transfer proceeds similar to the Stop-and-Wait protocol. TFTP server must receive
- *  a correctly numbered ACK before it can send the next DATA packet. The TFTP server is 
- *  responsible for setting a timeout timer and retransmitting the current DATA packet. 
- * 
- * 5. Final DATA packet must contain less than a full-sized block of data to signal that
- *  this is the last packet. Once an ACK is received for the final packet, the TFTP 
- *  child process should clean up and exit.
- */ 
-int rrq() {
-    
-}
+ */
+void rrq(struct client_info client)
+{
+    char *filename;
+    char *mode_s;
+    int block_num = 0;
+    filename = client.buffer.file;
+    mode_s = strchr(filename, '\0') + 1;
+    FILE *fd = fopen(fopen, "r");
+    int close = 0;
+    if (fd == NULL)
+    {
+        error(client, "file not found");
+    }
+    struct data data_;
+    while (!close)
+    {
+        int data_len = fread(data_.data, 1, sizeof(data_.data), fd);
+        block_num++;
 
-/**
- * BONUS: Write Request function
- */ 
-int wrq() {
-
-}
-
-/**
- * Will return > 0 if the descriptor is readable.
- * -1 on error, 0 if timeout occurs, or positive value specifying the number of ready
- * descriptions (+1 in our case).
- * 
- * Server should count consecutive timeouts and then clean up and exit child process if
- * it reaches a certain amount. 
- */ 
-int readable_timeo(int fd, int sec) {
-    fd_set rset;
-    struct timeval tv;
-
-    FD_ZERO(&rset);
-    FD_SET(fd, &rset);
-
-    tv.tv_sec = sec;
-    tv.tv_usec = 0;
-
-    return (select(fd + 1, &rset, NULL, NULL, &tv));
-}
-
-/*
-int netascii() {
-    c = getc(fp);
-
-    if (c == EOF) {
-        if (ferror(fp)) {
-            err_dump("read err from getc on local file");
+        if (data_len < sizeof(data_.data))
+        {
+            close = 1;
         }
-        return count;
-    } else if (c == '\n') {
-        c = '\r';
-        nextchar = '\n';
-    } else if (c == '\r') {
-        nextchar = '\0';
-    } else {
-        nextchar = -1;
+
+        data_.block_number = htons(block_num);
+        data(data_, client);
+        client.size = recvfrom(client.sock, &client.buffer, sizeof(client.buffer), 0, (struct sockaddr *)&client.client, sizeof(client.client));
+        if (client.size < 0)
+        {
+            perror("rrq_recicvfrom");
+        }
+        printf("ACK for block number %u", data_.block_number);
     }
 }
+/**
+ * BONUS: Write Request function
+ */
+void wrq(struct client_info client)
+{
+}
+/**
+ * Client Request
 */
+int client_request(struct client_info client)
+{
+    int opcode = htons(client.buffer.opcode);
+    int sock;
+    sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    if (sock < 0)
+    {
+        return -1;
+    }
+    client.sock = sock;
+    if (opcode = RRQ)
+    {
+        rrq(client);
+    }
+    else
+    {
+        wrq(client);
+    }
+    pclose(sock);
+    return 0;
+}
