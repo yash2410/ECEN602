@@ -19,7 +19,6 @@
  */
 int main(int argc, char *argv[])
 {
-
     pid_t child_pid;
 
     int opt = 1;
@@ -93,7 +92,7 @@ int main(int argc, char *argv[])
             printf("Unidentified opcode : %d\n", opcode);
             break;
         }
-        if (stat = -1)
+        if (stat == -1)
         {
             printf("error in socket dropping client");
         }

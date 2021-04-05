@@ -35,18 +35,19 @@ void error(struct client_info client, char error_string)
  */
 void rrq(struct client_info client)
 {
-    char *filename;
-    char *mode_s;
+    char *filename = client.buffer.file;
+    char *mode_s = strchr(filename, '\0') + 1;
     int block_num = 0;
-    filename = client.buffer.file;
-    mode_s = strchr(filename, '\0') + 1;
     FILE *fd = fopen(fopen, "r");
     int close = 0;
+
     if (fd == NULL)
     {
         error(client, "file not found");
     }
+
     struct data data_;
+
     while (!close)
     {
         int data_len = fread(data_.data, 1, sizeof(data_.data), fd);
@@ -60,6 +61,7 @@ void rrq(struct client_info client)
         data_.block_number = htons(block_num);
         data(data_, client);
         client.size = recvfrom(client.sock, &client.buffer, sizeof(client.buffer), 0, (struct sockaddr *)&client.client, sizeof(client.client));
+
         if (client.size < 0)
         {
             perror("rrq_recicvfrom");
@@ -67,33 +69,40 @@ void rrq(struct client_info client)
         printf("ACK for block number %u", data_.block_number);
     }
 }
+
 /**
  * BONUS: Write Request function
  */
 void wrq(struct client_info client)
 {
 }
+
 /**
- * Client Request
+ * Client Request is a wrapper function that will either call RRQ or WRQ
+ * based on the opcode. 
 */
 int client_request(struct client_info client)
 {
     int opcode = htons(client.buffer.opcode);
     int sock;
     sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+
     if (sock < 0)
     {
         return -1;
     }
+
     client.sock = sock;
-    if (opcode = RRQ)
+
+    if (opcode == RRQ)
     {
         rrq(client);
     }
-    else
+    else if (opcode == WRQ)
     {
         wrq(client);
     }
+
     pclose(sock);
     return 0;
 }
