@@ -16,7 +16,7 @@
 #include <time.h>
 
 #define IP_ADDRESS "127.0.0.1"
-#define PORT 8000
+#define PORT "8000"
 #define MAX_CLIENTS 5
 
 #define MAX_PACKET_SIZE 516
@@ -41,14 +41,14 @@ enum tftp_opcode
 struct rrq_wrq
 {
   uint16_t opcode;
-  uint8_t file
+  uint8_t file;
 };
 
 struct data
 {
   uint16_t opcode;
   uint16_t block_number;
-  uint8_t data[512]
+  uint8_t data[512];
 };
 
 struct ack

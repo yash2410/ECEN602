@@ -19,15 +19,13 @@
  */
 int main(int argc, char *argv[])
 {
-    pid_t child_pid;
-
     int opt = 1;
-    int proc_stat;
     int listener;
-    int recv_status;
-    int nbytes;
+    int rv;
+    int numbytes;
     pid_t pid;
-    struct sockaddr_in address;
+    struct addrinfo hints, *results, *p;
+
     // if (argc != 3)
     // {
     //   perror("Usage: <./server. server_ip server_port>");
@@ -38,39 +36,57 @@ int main(int argc, char *argv[])
     int port = PORT;               // atoi(argv[2]);
     int max_clients = MAX_CLIENTS; // atoi(argv[3]);
 
-    if ((listener = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == 0)
-    {
-        perror("socket failed");
-        exit(EXIT_FAILURE);
-    }
-    printf("[*] SOCKET SUCCESSFUL \n");
+    // -----------------------------------
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_INET6;
+    hints.ai_socktype = SOCK_DGRAM;
+    hints.ai_flags = AI_PASSIVE; // use local machine's IP address
 
-    int stat = setsockopt(listener, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt));
-    if (stat < 0)
+    if ((rv = getaddrinfo(NULL, PORT, &hints, &results)) != 0)
     {
-        perror("server setsockopt() error");
-        exit(EXIT_FAILURE);
+        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
+        return 1;
     }
-    printf("[*] SETSOCKOPT SUCCESSFUL \n");
 
-    memset(&address, 0, sizeof(address));
-    address.sin_family = AF_INET;
-    address.sin_addr.s_addr = inet_addr(IP_ADDRESS);
-    address.sin_port = htons(port);
-
-    if (bind(listener, (struct sockaddr *)&address, sizeof(address)) < 0)
+    // loop through all the results and bind to the first one we can;
+    for (p = results; p != NULL; p = p->ai_next)
     {
-        perror("server bind() failed");
-        exit(EXIT_FAILURE);
+        if ((listener = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1)
+        {
+            perror("listener: socket");
+            continue;
+        }
+
+        if (setsockopt(listener, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt)) == -1) 
+        {
+            perror("server setsockopt() error");
+            continue;
+        }
+
+        if (bind(listener, p->ai_addr, p->ai_addrlen) == -1)
+        {
+            close(listener);
+            perror("listener: bind");
+            continue;
+        }
+
+        break;
     }
-    printf("[*] BIND SUCCESSFUL \n");
+
+    if (p == NULL)
+    {
+        fprintf(stderr, "listener: failed to bind socket \n");
+        return 2;
+    }
+    printf("[*] LISTENER SOCKET SETUP SUCCESSFUL\n");
+    freeaddrinfo(results);
 
     while (opt)
     {
         struct client_info client;
 
         int stat = 0;
-        printf("Waiting for client\n");
+        printf("listener: waiting to recvfrom...\n");
 
         client.size = recvfrom(listener, &client.buffer, sizeof(client.buffer), 0, (struct sockaddr *)&client.client, sizeof(client.client));
         int opcode = htons(client.buffer.opcode);
@@ -96,6 +112,8 @@ int main(int argc, char *argv[])
         {
             printf("error in socket dropping client");
         }
-        free(&client);
+
+        // not on the heap?
+        // free(&client);
     }
 }

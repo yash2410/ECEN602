@@ -1,13 +1,4 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <errno.h>
-#include <string.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <netdb.h>
+#include "helpers.c"
 
 /**
  * Sits on a machine waiting for an incoming packet on port 4950.
@@ -58,6 +49,7 @@ int main()
             perror("listener: socket");
             continue;
         }
+        printf("[*] SOCKET SUCCESSFUL \n");
 
         if (bind(sockfd, p->ai_addr, p->ai_addrlen) == -1)
         {
@@ -65,6 +57,7 @@ int main()
             perror("listener: bind");
             continue;
         }
+        printf("[*] BINDED SUCCESSFUL \n");
 
         break;
     }
@@ -74,12 +67,12 @@ int main()
         fprintf(stderr, "listener: failed to bind socket \n");
         return 2;
     }
-
+    
     freeaddrinfo(results);
     printf("listener: waiting to recvfrom...\n");
-
     while (1)
     {
+        // wait to receive a packet from a client
         client_addr_len = sizeof(client_addr);
         if ((numbytes = recvfrom(sockfd, buf, MAXBUFLEN - 1, 0, (struct sockaddr *)&client_addr, &client_addr_len)) == -1)
         {
@@ -87,6 +80,7 @@ int main()
             exit(1);
         }
 
+        // print out packet information
         printf("listener: got packet from %s\n",
                inet_ntop(client_addr.ss_family,
                          get_in_addr((struct sockaddr *)&client_addr),
@@ -96,6 +90,9 @@ int main()
         printf("listener: packet is %d bytes long\n", numbytes);
         buf[numbytes] = '\0';
         printf("listener: packet contains \"%s\"\n", buf);
+
+
+
     }
 
     close(sockfd);
