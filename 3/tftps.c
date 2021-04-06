@@ -66,7 +66,7 @@ int main(int argc, char *argv[])
 
         if (bind(listener, p->ai_addr, p->ai_addrlen) == -1)
         {
-            close(listener);
+            pclose(listener);
             perror("listener: bind");
             continue;
         }
@@ -90,7 +90,7 @@ int main(int argc, char *argv[])
         client.size = recvfrom(listener, &client.buffer, sizeof(client.buffer), 0, (struct sockaddr *)&client.client, sizeof(client.client));
         if (client.size == -1) 
         {
-            perror("recvfrom");
+            perror("tftps recvfrom error");
             exit(EXIT_FAILURE);
         }
         
@@ -99,17 +99,15 @@ int main(int argc, char *argv[])
         switch (opcode)
         {
         case (RRQ || WRQ):
-            pid = fork();
-            if (pid < 0)
+            if ((pid = fork()) < 0) 
             {
-                perror("fork()");
+                perror("tftps fork() error");
+                continue;
             }
-            else
+
+            if (client_request(client) == -1) 
             {
-                if (client_request(client) == -1) 
-                {
-                    printf("error in socket dropping client\n");
-                }
+                printf("error in socket dropping client\n");
             }
             break;
         default:
