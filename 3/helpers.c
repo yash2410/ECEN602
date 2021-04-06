@@ -1,19 +1,20 @@
 #include "constants.c"
 
 /**
+ * octet_wrq
+ * netascii_wrq
+ * ack(): wrq
+ */ 
+
+/**
  * Standard octet transmission
  * what is fp??
  */ 
-int octet_rrq(char *buf, char *fp, int MAXBUFLEN) {
+int octet_rrq(struct data data_, int fd) {
     // size_t numbytes = fread(buf, 1, MAXBUFLEN, *fp);
-    int numbytes = 0;
+    int numbytes = fread(data_.data, 1, sizeof(data_.data), fd);
     return numbytes;
 }
-
-int octet_wrq() {
-    return 0;
-}
-
 
 /**
  * Standard netascii transmission
@@ -21,11 +22,14 @@ int octet_wrq() {
  * returns the nextchar
  * TODO: what is fp
  */ 
-char netascii_rrq(char *buf, int maxnbytes, char fp) {
-    char c, *ptr;
-    char nextchar = buf;
+char netascii_rrq(struct data data_, int fp) {
+    char c;
+    char nextchar = data_.block_number;
+    char *ptr = nextchar; // is this right?
+    int maxnbytes = sizeof(data_.data);
 
     for (int count = 0; count < maxnbytes; ++count) {
+        // if nextchar exists, set ptr to it
         if (nextchar >= 0) {
             *ptr++ = nextchar;
             nextchar = -1;
@@ -36,7 +40,6 @@ char netascii_rrq(char *buf, int maxnbytes, char fp) {
 
         if (c == EOF) {
             if (ferror(fp)) {
-                // err_dump("read err from getc on local file");
                 perror("read err from getc on local file");
             }
             return count;
@@ -56,10 +59,6 @@ char netascii_rrq(char *buf, int maxnbytes, char fp) {
     }
 
     return nextchar;
-}
-
-int netascii_wrq() {
-    return 0;
 }
 
 
@@ -116,13 +115,6 @@ void error(struct client_info client, char error_string)
     }
 }
 
-/**
- * Ack for WRQ
- */
-void ack() {
-
-}
-
 
 /**
  * Read Request Function
@@ -149,6 +141,15 @@ void rrq(struct client_info client)
         int data_len = fread(data_.data, 1, sizeof(data_.data), fd);
         block_num++;
 
+        if (*mode_s == OCTET) {
+            octet_rrq(data_, fd);
+        } else if (*mode_s == NETASCII) {
+            netascii_rrq(data_, fd);
+        } else {
+            printf("rrq invalid mode");
+            break;
+        }
+
         if (data_len < sizeof(data_.data))
         {
             close = 1;
@@ -157,6 +158,9 @@ void rrq(struct client_info client)
         data_.block_number = htons(block_num);
         // send data to client
         send_data(data_, client);
+
+        // set timeout timer for 1 second
+        readable_timeo(client.sock, 1);
 
         // get back the ACK
         client.size = recvfrom(client.sock, &client.buffer, sizeof(client.buffer), 0, (struct sockaddr *)&client.client, sizeof(client.client));
