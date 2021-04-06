@@ -17,6 +17,7 @@ void send_data(struct data data, struct client_info client)
     }
 }
 
+
 /**
  * Error
  */
@@ -32,8 +33,10 @@ void error(struct client_info client, char error_string)
     }
 }
 
+
 /**
  * Read Request Function
+ * TODO: add octet and netascii transmission
  */
 void rrq(struct client_info client)
 {
@@ -61,7 +64,6 @@ void rrq(struct client_info client)
         }
 
         data_.block_number = htons(block_num);
-
         // send data to client
         send_data(data_, client);
 
@@ -74,6 +76,7 @@ void rrq(struct client_info client)
         printf("ACK for block number %u", data_.block_number);
     }
 }
+
 
 /**
  * BONUS: Write Request function
@@ -102,7 +105,7 @@ int client_request(struct client_info client)
         perror("client_request bind() error");
         return -1;
     }
-    
+
     client.sock = sock;
 
     if (opcode == RRQ)
@@ -118,4 +121,54 @@ int client_request(struct client_info client)
 
     pclose(sock);
     return 0;
+}
+
+/**
+ * Standard octet transmission
+ */ 
+int octet_rrq(char *buf, char *fp, int MAXBUFLEN) {
+    size_t numbytes = fread(buf, 1, MAXBUFLEN, *fp);
+    return numbytes;
+}
+
+/**
+ * Standard netascii transmission
+ * nextchar needs to be global
+ * returns the nextchar
+ * TODO: what is fp
+ */ 
+char netascii_rrq(char *buf, int maxnbytes, char fp) {
+    char c, *ptr;
+    char nextchar = buf;
+
+    for (int count = 0; count < maxnbytes; ++count) {
+        if (nextchar >= 0) {
+            *ptr++ = nextchar;
+            nextchar = -1;
+            continue;
+        }
+
+        c = getc(fp);
+
+        if (c == EOF) {
+            if (ferror(fp)) {
+                err_dump("read err from getc on local file");
+            }
+            return count;
+
+        } else if (c == '\n') {
+            c = '\r';
+            nextchar = '\n';
+
+        } else if (c == '\r') {
+            nextchar = '\0';
+
+        } else {
+            nextchar = -1;
+        }
+
+        *ptr++ = c;
+    }
+
+    return nextchar;
 }
