@@ -67,7 +67,7 @@ int main()
         fprintf(stderr, "listener: failed to bind socket \n");
         return 2;
     }
-    
+
     freeaddrinfo(results);
     printf("listener: waiting to recvfrom...\n");
     while (1)
@@ -90,9 +90,6 @@ int main()
         printf("listener: packet is %d bytes long\n", numbytes);
         buf[numbytes] = '\0';
         printf("listener: packet contains \"%s\"\n", buf);
-
-
-
     }
 
     close(sockfd);

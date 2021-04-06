@@ -12,10 +12,11 @@
 /**
  * TODO 
  *********************
- * Implementing Netascii
+ * Implementing Netascii and octet
  * Error and Ack (errors are not actually sent to tested for only the function is implemented)
  * Debugging
  * WRQ
+ * timeout 
  */
 int main(int argc, char *argv[])
 {
@@ -83,14 +84,18 @@ int main(int argc, char *argv[])
 
     while (opt)
     {
+        printf("listener: waiting to recvfrom...\n");
         struct client_info client;
 
-        int stat = 0;
-        printf("listener: waiting to recvfrom...\n");
-
         client.size = recvfrom(listener, &client.buffer, sizeof(client.buffer), 0, (struct sockaddr *)&client.client, sizeof(client.client));
+        if (client.size == -1) 
+        {
+            perror("recvfrom");
+            exit(EXIT_FAILURE);
+        }
+        
+        // Fork off a process for the new socket for the incoming packet
         int opcode = htons(client.buffer.opcode);
-
         switch (opcode)
         {
         case (RRQ || WRQ):
@@ -101,16 +106,15 @@ int main(int argc, char *argv[])
             }
             else
             {
-                stat = client_request(client);
+                if (client_request(client) == -1) 
+                {
+                    printf("error in socket dropping client\n");
+                }
             }
             break;
         default:
             printf("Unidentified opcode : %d\n", opcode);
             break;
-        }
-        if (stat == -1)
-        {
-            printf("error in socket dropping client");
         }
 
         // not on the heap?

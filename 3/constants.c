@@ -64,7 +64,7 @@ struct error
   uint8_t error[512];
 };
 
-//Client Info hold all the information of the client i.e the files, socket, address and size
+// Client Info hold all the information of the client i.e the files, socket, address and size
 struct client_info
 {
   int size;
