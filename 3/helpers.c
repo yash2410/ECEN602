@@ -8,10 +8,8 @@
 
 /**
  * Standard octet transmission
- * what is fp??
  */ 
 int octet_rrq(struct data data_, int fd) {
-    // size_t numbytes = fread(buf, 1, MAXBUFLEN, *fp);
     int numbytes = fread(data_.data, 1, sizeof(data_.data), fd);
     return numbytes;
 }
@@ -20,12 +18,11 @@ int octet_rrq(struct data data_, int fd) {
  * Standard netascii transmission
  * nextchar needs to be global
  * returns the nextchar
- * TODO: what is fp
  */ 
 char netascii_rrq(struct data data_, int fp) {
     char c;
     char nextchar = data_.block_number;
-    char *ptr = nextchar; // is this right?
+    char *ptr = nextchar;
     int maxnbytes = sizeof(data_.data);
 
     for (int count = 0; count < maxnbytes; ++count) {
@@ -138,24 +135,33 @@ void rrq(struct client_info client)
 
     while (!close)
     {
-        int data_len = fread(data_.data, 1, sizeof(data_.data), fd);
-        block_num++;
+        int numbytes = 0;
 
         if (*mode_s == OCTET) {
-            octet_rrq(data_, fd);
+            numbytes = octet_rrq(data_, fd);
+            if (numbytes == -1) {
+                error(client, "File not found.");
+            }
+
         } else if (*mode_s == NETASCII) {
-            netascii_rrq(data_, fd);
+            numbytes = netascii_rrq(data_, fd);
+            if (numbytes == -1) {
+                error(client, "File not found.");
+            }
         } else {
             printf("rrq invalid mode");
+            error(client, "Invalid mode");
             break;
         }
 
-        if (data_len < sizeof(data_.data))
+        block_num++;
+        if (numbytes < sizeof(data_.data))
         {
             close = 1;
         }
-
         data_.block_number = htons(block_num);
+
+
         // send data to client
         send_data(data_, client);
 
@@ -167,6 +173,7 @@ void rrq(struct client_info client)
         if (client.size < 0)
         {
             perror("rrq_recvfrom");
+            error(client, "ACK not received");
         }
         printf("ACK for block number %u", data_.block_number);
     }

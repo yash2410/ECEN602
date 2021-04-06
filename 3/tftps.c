@@ -12,110 +12,98 @@
 /**
  * TODO 
  *********************
- * Implementing Netascii and octet
+ * Implementing Netascii
  * Error and Ack (errors are not actually sent to tested for only the function is implemented)
  * Debugging
  * WRQ
- * timeout 
  */
 int main(int argc, char *argv[])
 {
-    int opt = 1;
-    int listener;
-    int rv;
-    int numbytes;
-    pid_t pid;
-    struct addrinfo hints, *results, *p;
+  pid_t child_pid;
 
-    // if (argc != 3)
-    // {
-    //   perror("Usage: <./server. server_ip server_port>");
-    //   exit(EXIT_FAILURE);
-    // }
+  int opt = 1;
+  int proc_stat;
+  int listener;
+  int recv_status;
+  int nbytes;
+  pid_t pid;
+  struct sockaddr_in address;
+  
+  if (argc != 3)
+  {
+    perror("Usage: <./server. server_ip server_port>");
+    exit(EXIT_FAILURE);
+  }
 
-    char ip_address = IP_ADDRESS;  // argv[1];
-    int port = PORT;               // atoi(argv[2]);
-    int max_clients = MAX_CLIENTS; // atoi(argv[3]);
+  char ip_address = argv[1];
+  int port = atoi(argv[2]);
 
-    // -----------------------------------
-    memset(&hints, 0, sizeof(hints));
-    hints.ai_family = AF_INET6;
-    hints.ai_socktype = SOCK_DGRAM;
-    hints.ai_flags = AI_PASSIVE; // use local machine's IP address
+  if ((listener = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == 0)
+  {
+    perror("socket failed");
+    exit(EXIT_FAILURE);
+  }
+  printf("[*] SOCKET SUCCESSFUL \n");
 
-    if ((rv = getaddrinfo(NULL, PORT, &hints, &results)) != 0)
+  int stat = setsockopt(listener, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt));
+  if (stat < 0)
+  {
+    perror("server setsockopt() error");
+    exit(EXIT_FAILURE);
+  }
+  printf("[*] SETSOCKOPT SUCCESSFUL \n");
+
+  memset(&address, 0, sizeof(address));
+  address.sin_family = AF_INET;
+  address.sin_addr.s_addr = inet_addr(IP_ADDRESS);
+  address.sin_port = htons(port);
+
+  if (bind(listener, (struct sockaddr *)&address, sizeof(address)) < 0)
+  {
+    perror("server bind() failed");
+    exit(EXIT_FAILURE);
+  }
+  printf("[*] BIND SUCCESSFUL \n");
+
+  while (opt)
+  {
+    struct client_info client;
+
+    int stat = 0;
+    printf("Waiting for client\n");
+
+    client.size = recvfrom(listener, &client.buffer, sizeof(client.buffer), 0, (struct sockaddr *)&client.client, sizeof(client.client));
+    if (client.size == -1) {
+        perror("tftps recvfrom error");
+        exit(EXIT_FAILURE);
+    }
+    int opcode = htons(client.buffer.opcode);
+
+    switch (opcode)
     {
-        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
-        return 1;
+    case (RRQ || WRQ):
+      pid = fork();
+      if (pid < 0)
+      {
+        perror("fork()");
+      }
+      else
+      {
+        stat = client_request(client);
+      }
+      break;
+    default:
+      printf("Unidentified opcode : %d\n", opcode);
+      error(client, "Unidentified opcode");
+      break;
     }
 
-    // loop through all the results and bind to the first one we can;
-    for (p = results; p != NULL; p = p->ai_next)
+    if (stat = -1)
     {
-        if ((listener = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1)
-        {
-            perror("listener: socket");
-            continue;
-        }
-
-        if (setsockopt(listener, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt)) == -1) 
-        {
-            perror("server setsockopt() error");
-            continue;
-        }
-
-        if (bind(listener, p->ai_addr, p->ai_addrlen) == -1)
-        {
-            pclose(listener);
-            perror("listener: bind");
-            continue;
-        }
-
-        break;
+      printf("error in socket dropping client");
+      error(client, "Error in socket dropping client");
     }
 
-    if (p == NULL)
-    {
-        fprintf(stderr, "listener: failed to bind socket \n");
-        return 2;
-    }
-    printf("[*] LISTENER SOCKET SETUP SUCCESSFUL\n");
-    freeaddrinfo(results);
-
-    while (opt)
-    {
-        printf("listener: waiting to recvfrom...\n");
-        struct client_info client;
-
-        client.size = recvfrom(listener, &client.buffer, sizeof(client.buffer), 0, (struct sockaddr *)&client.client, sizeof(client.client));
-        if (client.size == -1) 
-        {
-            perror("tftps recvfrom error");
-            exit(EXIT_FAILURE);
-        }
-        
-        // Fork off a process for the new socket for the incoming packet
-        int opcode = htons(client.buffer.opcode);
-        switch (opcode)
-        {
-        case (RRQ || WRQ):
-            if ((pid = fork()) < 0) 
-            {
-                perror("tftps fork() error");
-                continue;
-            }
-
-            if (client_request(client) == -1) 
-            {
-                printf("error in socket dropping client\n");
-            }
-            break;
-        default:
-            printf("Unidentified opcode : %d\n", opcode);
-            break;
-        }
-
-        // not on the heap?
-        // free(&client);
-    }
+    free(&client);
+  }
 }

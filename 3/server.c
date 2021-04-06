@@ -1,35 +1,43 @@
 #include "helpers.c"
-
 /**
- * Sits on a machine waiting for an incoming packet on port 4950.
- * talker sends a packet to that port, on the specified machine, that contains whatever the
- * user enters on the command line.
+ * UDP Server
+ *********************
+ * The request is sent by thr tftp client to the server
+ * server receives the new request and checks for RRQ or WRQ
+ * requests are sent to client_request() with all the client info to generate socket for the new client
+ * the client is then sent to rrq or wrq with the said client_info.
+ * in rrq the files is opened and checked if it exists then put into a for loop to send the file on the socket
+ * till the last block, timeout after 3 retries
  */
-
-#define PORT "4950"
-#define MAXBUFLEN 100
-
-void *get_in_addr(struct sockaddr *sa)
+/**
+ * TODO 
+ *********************
+ * Implementing Netascii and octet
+ * Error and Ack (errors are not actually sent to tested for only the function is implemented)
+ * Debugging
+ * WRQ
+ * timeout 
+ */
+int main(int argc, char *argv[])
 {
-    if (sa->sa_family == AF_INET)
-    {
-        return &(((struct sockaddr_in *)sa)->sin_addr);
-    }
-
-    return &(((struct sockaddr_in6 *)sa)->sin6_addr);
-}
-
-int main()
-{
-    int sockfd;
-    struct addrinfo hints, *results, *p;
+    int opt = 1;
+    int listener;
     int rv;
     int numbytes;
-    struct sockaddr_storage client_addr;
-    char buf[MAXBUFLEN];
-    socklen_t client_addr_len;
-    char s[INET6_ADDRSTRLEN];
+    pid_t pid;
+    struct addrinfo hints, *results, *p;
 
+    // if (argc != 3)
+    // {
+    //   perror("Usage: <./server. server_ip server_port>");
+    //   exit(EXIT_FAILURE);
+    // }
+
+    char ip_address = IP_ADDRESS;  // argv[1];
+    int port = PORT;               // atoi(argv[2]);
+    int max_clients = MAX_CLIENTS; 
+
+    // -----------------------------------
     memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_INET6;
     hints.ai_socktype = SOCK_DGRAM;
@@ -44,20 +52,24 @@ int main()
     // loop through all the results and bind to the first one we can;
     for (p = results; p != NULL; p = p->ai_next)
     {
-        if ((sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1)
+        if ((listener = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1)
         {
-            perror("listener: socket");
+            perror("listener socket() error");
             continue;
         }
-        printf("[*] SOCKET SUCCESSFUL \n");
 
-        if (bind(sockfd, p->ai_addr, p->ai_addrlen) == -1)
+        if (setsockopt(listener, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt)) == -1) 
         {
-            close(sockfd);
-            perror("listener: bind");
+            perror("listener setsockopt() error");
             continue;
         }
-        printf("[*] BINDED SUCCESSFUL \n");
+
+        if (bind(listener, p->ai_addr, p->ai_addrlen) == -1)
+        {
+            pclose(listener);
+            perror("listener bind() error");
+            continue;
+        }
 
         break;
     }
@@ -67,31 +79,43 @@ int main()
         fprintf(stderr, "listener: failed to bind socket \n");
         return 2;
     }
-
+    printf("[*] LISTENER SOCKET SETUP SUCCESSFUL\n");
     freeaddrinfo(results);
-    printf("listener: waiting to recvfrom...\n");
-    while (1)
+
+    while (opt)
     {
-        // wait to receive a packet from a client
-        client_addr_len = sizeof(client_addr);
-        if ((numbytes = recvfrom(sockfd, buf, MAXBUFLEN - 1, 0, (struct sockaddr *)&client_addr, &client_addr_len)) == -1)
+        printf("listener: waiting to recvfrom...\n");
+        struct client_info client;
+
+        client.size = recvfrom(listener, &client.buffer, sizeof(client.buffer), 0, (struct sockaddr *)&client.client, sizeof(client.client));
+        if (client.size == -1) 
         {
-            perror("recvfrom");
-            exit(1);
+            perror("tftps recvfrom error");
+            exit(EXIT_FAILURE);
+        }
+        
+        // Fork off a process for the new socket for the incoming packet
+        int opcode = htons(client.buffer.opcode);
+        switch (opcode)
+        {
+        case (RRQ || WRQ):
+            if ((pid = fork()) < 0) 
+            {
+                perror("tftps fork() error");
+                continue;
+            }
+
+            if (client_request(client) == -1) 
+            {
+                printf("error in socket dropping client\n");
+            }
+            break;
+        default:
+            printf("Unidentified opcode : %d\n", opcode);
+            break;
         }
 
-        // print out packet information
-        printf("listener: got packet from %s\n",
-               inet_ntop(client_addr.ss_family,
-                         get_in_addr((struct sockaddr *)&client_addr),
-                         s,
-                         sizeof(s)));
-
-        printf("listener: packet is %d bytes long\n", numbytes);
-        buf[numbytes] = '\0';
-        printf("listener: packet contains \"%s\"\n", buf);
+        // not on the heap?
+        // free(&client);
     }
-
-    close(sockfd);
-    return 0;
 }

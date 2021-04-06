@@ -4,8 +4,8 @@ TARGETS = tftps
 
 all: $(TARGETS)
 
-tftps: server.o $(DEP)
-	$(C) -o tftps server.o
+tftps: tftps.o $(DEP)
+	$(C) -o tftps tftps.o
 	
 clean:
 	rm -f *.o tftps
