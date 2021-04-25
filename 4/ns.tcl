@@ -2,7 +2,7 @@
 # Process (basically functions)
 # Routine for finish
 proc finish {} {
-  global ns nf throughput1 throughput2 timer tracefile tr
+  global ns nf throughput1 throughput2 timer tracefile tr tr1 tr2
   
   $ns flush-trace
   close $nf
@@ -18,13 +18,16 @@ proc finish {} {
   puts "RUNNIG NAM"
   exec nam out_nam
   puts "Plotting Throughput"
+  #uncomment for submission
+  # exec xgraph tr1.tr -geometry 800x400  &
+  # exec xgraph tr2.tr -geometry 800x400  &
   exec python3 plot.py &
   exit 0
 }
 
 #Routine to record simulation
 proc sim {} {
-  global tr throughput1 throughput2 sink1 sink2 timer start
+  global tr throughput1 throughput2 sink1 sink2 timer start tr1 tr2
   set ns [Simulator instance]
   
   set step 0.5
@@ -37,7 +40,10 @@ proc sim {} {
   
   #saving to txt file for python plot
   puts $tr "$time_now,$new_th1,$new_th2"
-
+  #uncomment for submission
+  # puts $tr1 "$time_now $new_th1"
+  # puts $tr2 "$time_now $new_th2"
+  
   if { $time_now >= 100 } {
 	set throughput1 [expr $throughput1+$new_th1 ]
 	set throughput2 [expr $throughput2+$new_th2 ]
@@ -133,6 +139,10 @@ set timer 0
 #xgraph not available using txt file to plot through python
 set tr [open tr.csv w]
 puts $tr "time,th1,th2"
+
+# Uncomment for final commit 
+# set tr1 [open tr1.tr w]
+# set tr2 [open tr2.tr w]
 
 #Setting up the simulation
 $ns at $start "sim"
