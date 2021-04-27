@@ -17,10 +17,10 @@ proc finish {} {
   
   # puts "RUNNIG NAM"
   exec nam out_nam.nam &
-  # puts "Plotting Throughput"
+  puts "Plotting Throughput"
   # uncomment for submission
-  # exec xgraph tr1.tr -geometry 800x400  &
-  # exec xgraph tr2.tr -geometry 800x400  &
+  exec xgraph tr1.tr -geometry 800x400  &
+  exec xgraph tr2.tr -geometry 800x400  &
   # exec python3 plot.py &
   exit 0
 }
@@ -41,8 +41,8 @@ proc sim {} {
   #saving to txt file for python plot
   puts $tr "$time_now,$new_th1,$new_th2"
   #uncomment for submission
-  # puts $tr1 "$time_now $new_th1"
-  # puts $tr2 "$time_now $new_th2"
+  puts $tr1 "$time_now $new_th1"
+  puts $tr2 "$time_now $new_th2"
   
   if { $time_now >= 100 } {
 	set throughput1 [expr $throughput1+$new_th1 ]
@@ -59,7 +59,7 @@ proc sim {} {
 #check arguments
 if { $argc != 2 } {
   puts "ns ns.tcl <TCP_tcp_flavor> <case_number>"
-  puts "TCP_TYPE : Vegas or Sack"
+  puts "TCP_TYPE : Vegas or Sack1"
   puts "CASE_NUM : 1,2 or 3"
 }
 
@@ -141,8 +141,8 @@ set tr [open tr.csv w]
 puts $tr "time,th1,th2"
 
 # Uncomment for final commit 
-# set tr1 [open tr1.tr w]
-# set tr2 [open tr2.tr w]
+set tr1 [open tr1.tr w]
+set tr2 [open tr2.tr w]
 
 #Setting up the simulation
 $ns at $start "sim"
