@@ -16,12 +16,12 @@ proc finish {} {
   #plot using python
   
   # puts "RUNNIG NAM"
-  # exec nam out_nam
-  puts "Plotting Throughput"
+  exec nam out_nam.nam &
+  # puts "Plotting Throughput"
   # uncomment for submission
   # exec xgraph tr1.tr -geometry 800x400  &
   # exec xgraph tr2.tr -geometry 800x400  &
-  exec python3 plot.py &
+  # exec python3 plot.py &
   exit 0
 }
 
@@ -79,8 +79,15 @@ switch $case {
 
 #Simulator
 set ns [new Simulator]
+$ns color 1 Red 
+$ns color 2 Blue
+
 set tracefile [open out.tr w]
 $ns trace-all $tracefile
+
+# NAM
+set nf [open out_nam.nam w] 
+$ns namtrace-all $nf
 
 # Network Assignments and connections
 set src1 [$ns node]
@@ -89,9 +96,6 @@ set rcv1 [$ns node]
 set rcv2 [$ns node]
 set r1 [$ns node]
 set r2 [$ns node]
-
-ns color 1 Blue
-ns color 2 Red
 
 $ns duplex-link $src1 $r1 10Mb 5ms DropTail
 $ns duplex-link $src2 $r1 10Mb $delay DropTail
@@ -122,10 +126,6 @@ set ftp2 [new Application/FTP]
     
 $ftp1 attach-agent $tcp1
 $ftp2 attach-agent $tcp2
-
-#NAM 
-set nf [open out_nam.nam w] 
-$ns namtrace-all $nf
 
 $ns duplex-link-op $src1 $r1 orient right-down
 $ns duplex-link-op $src2 $r1 orient right-up
