@@ -9,16 +9,16 @@ proc finish {} {
   close $tracefile
   close $tr
 
-  puts "Average Throughput (SRC1) : [expr $throughput1/($timer-200)] Mbps\n"
-  puts "Average Throughput (SRC1) :[expr $throughput2/($timer-200)] Mbps\n"
-  puts "Ratio = [expr $throughput1/($throughput2)]\n"
+  puts "Average Throughput (SRC1) : [expr $throughput1/($timer-200)] Mbps"
+  puts "Average Throughput (SRC2) :[expr $throughput2/($timer-200)] Mbps"
+  puts "Ratio = [expr $throughput1/($throughput2)]"
 
   #plot using python
   
-  puts "RUNNIG NAM"
-  exec nam out_nam
+  # puts "RUNNIG NAM"
+  # exec nam out_nam
   puts "Plotting Throughput"
-  #uncomment for submission
+  # uncomment for submission
   # exec xgraph tr1.tr -geometry 800x400  &
   # exec xgraph tr2.tr -geometry 800x400  &
   exec python3 plot.py &
